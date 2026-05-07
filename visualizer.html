@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Audio Visualizer</title>
 <style>
+:root {
+  --accent-color: #40d8ff;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -258,6 +262,228 @@ html, body {
   color: #2a2a34;
   letter-spacing: 0.3px;
 }
+
+/* ── Collapsible control sections ── */
+.ctrl-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.ctrl-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 2px 0;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-section-header .section-label {
+  margin: 0;
+  transition: color 0.12s;
+}
+
+.ctrl-section-header:hover .section-label {
+  color: #686878;
+}
+
+.ctrl-arrow {
+  color: #44444e;
+  transition: transform 0.18s ease, color 0.12s;
+  flex-shrink: 0;
+}
+
+.ctrl-section-header:hover .ctrl-arrow {
+  color: #686878;
+}
+
+.ctrl-section.collapsed .ctrl-arrow {
+  transform: rotate(-90deg);
+}
+
+.ctrl-section-body {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctrl-section.collapsed .ctrl-section-body {
+  display: none;
+}
+
+/* ── Control rows ── */
+.ctrl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ctrl-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.ctrl-label {
+  font-size: 11px;
+  color: #777788;
+  letter-spacing: 0.2px;
+}
+
+.ctrl-value {
+  font-size: 11px;
+  color: var(--accent-color);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
+}
+
+/* ── Range inputs ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #28282f;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  cursor: pointer;
+  border: none;
+}
+
+/* ── Select ── */
+.ctrl-select {
+  width: 100%;
+  background: #202028;
+  border: 1px solid #28282f;
+  border-radius: 5px;
+  color: #aaaab8;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555566'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 26px;
+}
+
+.ctrl-select:focus {
+  border-color: #3878d0;
+}
+
+/* ── Toggle buttons ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toggle-btn {
+  width: 38px;
+  height: 20px;
+  min-width: 38px;
+  border-radius: 10px;
+  background: #28282f;
+  border: 1px solid #38383f;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.toggle-btn::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #555560;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-btn.active {
+  background: #152040;
+  border-color: #2458a0;
+}
+
+.toggle-btn.active::after {
+  transform: translateX(18px);
+  background: var(--accent-color);
+}
+
+/* ── Swatch grid ── */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.swatch {
+  border-radius: 7px;
+  aspect-ratio: 1;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.12s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5px;
+}
+
+.swatch:hover {
+  transform: scale(1.06);
+}
+
+.swatch.active {
+  border-color: #fff;
+}
+
+.swatch-name {
+  font-size: 7.5px;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  line-height: 1;
+}
 </style>
 </head>
 <body>
@@ -282,7 +508,6 @@ html, body {
         <div style="display:flex;flex-direction:column;gap:8px;">
 
           <button class="btn" id="btn-mic">
-            <!-- mic icon -->
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -295,7 +520,6 @@ html, body {
           </button>
 
           <button class="btn" id="btn-file">
-            <!-- music note icon -->
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -332,6 +556,97 @@ html, body {
         </div>
       </div>
 
+      <!-- Analyzer section (collapsible) -->
+      <div class="ctrl-section" id="section-analyzer">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Analyzer</div>
+          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ctrl-section-body">
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">FFT Size</span>
+            </div>
+            <select class="ctrl-select" id="ctrl-fft-size">
+              <option value="2048">2048</option>
+              <option value="4096">4096</option>
+              <option value="8192" selected>8192</option>
+              <option value="16384">16384</option>
+              <option value="32768">32768</option>
+            </select>
+          </div>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Smoothing</span>
+              <span class="ctrl-value" id="val-smoothing">0.80</span>
+            </div>
+            <input type="range" id="ctrl-smoothing" min="0" max="0.95" step="0.01" value="0.80">
+          </div>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Gain</span>
+              <span class="ctrl-value" id="val-gain">1.0</span>
+            </div>
+            <input type="range" id="ctrl-gain" min="0.1" max="4.0" step="0.1" value="1.0">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Visuals section (collapsible) -->
+      <div class="ctrl-section" id="section-visuals">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Visuals</div>
+          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ctrl-section-body">
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Motion Amount</span>
+              <span class="ctrl-value" id="val-motion">0.50</span>
+            </div>
+            <input type="range" id="ctrl-motion" min="0" max="1" step="0.01" value="0.5">
+          </div>
+
+          <div class="toggle-row">
+            <span class="ctrl-label">Mirror (Bars)</span>
+            <button class="toggle-btn" id="ctrl-mirror" aria-label="Toggle mirror"></button>
+          </div>
+
+          <div class="toggle-row">
+            <span class="ctrl-label">Fill (Waveform)</span>
+            <button class="toggle-btn active" id="ctrl-fill" aria-label="Toggle fill"></button>
+          </div>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Bar Count</span>
+              <span class="ctrl-value" id="val-barcount">128</span>
+            </div>
+            <input type="range" id="ctrl-barcount" min="32" max="256" step="4" value="128">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Theme section -->
+      <div>
+        <div class="section-label">Theme</div>
+        <div class="swatch-grid" id="swatch-grid"></div>
+      </div>
+
       <div style="flex:1"></div>
     </div><!-- /sidebar -->
 
@@ -364,21 +679,64 @@ html, body {
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════════
+   PARAMS  — single source of truth for all control state
+═══════════════════════════════════════════════════════════════ */
+const params = {
+  fftSize:      8192,
+  smoothing:    0.80,
+  gain:         1.0,
+  motionAmount: 0.5,
+  mirror:       false,
+  waveformFill: true,
+  barCount:     128,
+  themeIndex:   0,
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+   THEMES
+═══════════════════════════════════════════════════════════════ */
+const THEMES = [
+  { name: 'Midnight',   bgColor: '#080c18', accentColor: '#1a3888', highlightColor: '#40d8ff', midColor: '#2060c0' },
+  { name: 'Ember',      bgColor: '#0e0604', accentColor: '#8c1a00', highlightColor: '#ff6428', midColor: '#c03010' },
+  { name: 'Forest',     bgColor: '#040e04', accentColor: '#0a4010', highlightColor: '#38e060', midColor: '#18a030' },
+  { name: 'Neon',       bgColor: '#050508', accentColor: '#8800cc', highlightColor: '#00ffee', midColor: '#cc00ff' },
+  { name: 'Monochrome', bgColor: '#080808', accentColor: '#303030', highlightColor: '#d8d8d8', midColor: '#808080' },
+  { name: 'Sunrise',    bgColor: '#0c0608', accentColor: '#7a1040', highlightColor: '#ffd060', midColor: '#e04080' },
+];
+
+/* mutable theme state — updated by applyTheme() */
+const THEME = {
+  bgColor:   THEMES[0].bgColor,
+  accent:    THEMES[0].accentColor,
+  highlight: THEMES[0].highlightColor,
+  mid:       THEMES[0].midColor,
+  waveRGB:   [64, 216, 255],
+};
+
+function hexToRgb(hex) {
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ];
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    AUDIO ENGINE
 ═══════════════════════════════════════════════════════════════ */
 const AudioEngine = (() => {
-  const FFT_SIZE   = 8192;
-  const SMOOTHING  = 0.8;
-
   let ctx        = null;
   let analyser   = null;
+  let gainNode   = null;
   let compressor = null;
-  let freqBuf    = null;  // reused Uint8Array
-  let timeBuf    = null;  // reused Uint8Array
+  let freqBuf    = null;
+  let timeBuf    = null;
 
-  let activeSource = null;  // MediaStreamAudioSourceNode | AudioBufferSourceNode
-  let activeStream = null;  // MediaStream for mic
-  let sourceType   = null;  // 'mic' | 'file' | null
+  let activeSource = null;
+  let activeStream = null;
+  let sourceType   = null;
 
   // ── Init ──────────────────────────────────────────────────────
   function init() {
@@ -388,8 +746,11 @@ const AudioEngine = (() => {
     ctx = new AC();
 
     analyser = ctx.createAnalyser();
-    analyser.fftSize              = FFT_SIZE;
-    analyser.smoothingTimeConstant = SMOOTHING;
+    analyser.fftSize               = params.fftSize;
+    analyser.smoothingTimeConstant = params.smoothing;
+
+    gainNode = ctx.createGain();
+    gainNode.gain.value = params.gain;
 
     compressor = ctx.createDynamicsCompressor();
     compressor.threshold.value = -24;
@@ -398,7 +759,8 @@ const AudioEngine = (() => {
     compressor.attack.value    = 0.003;
     compressor.release.value   = 0.25;
 
-    // Topology: source → analyser → compressor → speakers
+    // Topology: source → gain → analyser → compressor → speakers
+    gainNode.connect(analyser);
     analyser.connect(compressor);
     compressor.connect(ctx.destination);
 
@@ -433,7 +795,7 @@ const AudioEngine = (() => {
     if (ctx.state === 'suspended') await ctx.resume();
 
     const node = ctx.createMediaStreamSource(stream);
-    node.connect(analyser);
+    node.connect(gainNode);
     activeSource = node;
     sourceType   = 'mic';
   }
@@ -443,18 +805,37 @@ const AudioEngine = (() => {
     init();
     disconnectActive();
 
-    const arrayBuf  = await file.arrayBuffer();
-    const audioBuf  = await ctx.decodeAudioData(arrayBuf);
+    const arrayBuf = await file.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrayBuf);
 
     if (ctx.state === 'suspended') await ctx.resume();
 
     const node = ctx.createBufferSource();
     node.buffer = audioBuf;
     node.loop   = true;
-    node.connect(analyser);
+    node.connect(gainNode);
     node.start(0);
     activeSource = node;
     sourceType   = 'file';
+  }
+
+  // ── Live parameter setters ────────────────────────────────────
+  function setFftSize(size) {
+    params.fftSize = size;
+    if (!analyser) return;
+    analyser.fftSize = size;
+    freqBuf = new Uint8Array(analyser.frequencyBinCount);
+    timeBuf = new Uint8Array(analyser.fftSize);
+  }
+
+  function setSmoothing(val) {
+    params.smoothing = val;
+    if (analyser) analyser.smoothingTimeConstant = val;
+  }
+
+  function setGain(val) {
+    params.gain = val;
+    if (gainNode) gainNode.gain.value = val;
   }
 
   // ── Data accessors (no allocation) ────────────────────────────
@@ -493,6 +874,7 @@ const AudioEngine = (() => {
 
   return {
     init, connectMic, connectFile,
+    setFftSize, setSmoothing, setGain,
     getFrequencyData, getTimeDomainData, getRMS,
     getState, getContext, getSourceType, resume,
   };
@@ -502,70 +884,67 @@ const AudioEngine = (() => {
 /* ═══════════════════════════════════════════════════════════════
    CANVAS + RESIZE
 ═══════════════════════════════════════════════════════════════ */
-const wrap   = document.getElementById('canvas-wrap');
-const canvas = document.getElementById('viz-canvas');
-const g      = canvas.getContext('2d');
-const idleEl = document.getElementById('idle-msg');
+const canvasWrap = document.getElementById('canvas-wrap');
+const canvas     = document.getElementById('viz-canvas');
+const g          = canvas.getContext('2d');
+const idleEl     = document.getElementById('idle-msg');
 
 let logicalW = 1, logicalH = 1;
 
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  logicalW = wrap.clientWidth;
-  logicalH = wrap.clientHeight;
+  logicalW = canvasWrap.clientWidth;
+  logicalH = canvasWrap.clientHeight;
   canvas.width  = Math.round(logicalW * dpr);
   canvas.height = Math.round(logicalH * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  barsGradH = -1;  // invalidate cached gradient on resize
 }
 
-new ResizeObserver(resizeCanvas).observe(wrap);
+new ResizeObserver(resizeCanvas).observe(canvasWrap);
 resizeCanvas();
 
 
 /* ═══════════════════════════════════════════════════════════════
-   THEME
-═══════════════════════════════════════════════════════════════ */
-const THEME = {
-  accent:      '#1a3888',   // bars gradient bottom
-  highlight:   '#40d8ff',   // bars gradient top
-  waveRGB:     [80, 148, 232],  // waveform line color as [r,g,b]
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   VISUALIZER STATE  (all typed arrays allocated once)
+   VISUALIZER STATE
 ═══════════════════════════════════════════════════════════════ */
 let currentMode = 'bars';
 
 // ── BARS ──────────────────────────────────────────────────────
-const BAR_COUNT  = 128;
-const barHeights = new Float32Array(BAR_COUNT);  // smoothed 0-1
-let   barsGrad   = null;   // cached gradient; invalidated on resize
+const barHeights = new Float32Array(256);  // pre-allocated at max bar count
+let   barsGrad   = null;
 let   barsGradH  = -1;
 
 // ── WAVEFORM ──────────────────────────────────────────────────
 let wavePhase = 0;
-let waveYBuf  = new Float32Array(4096);  // precomputed y values; grown on resize
+let waveYBuf  = new Float32Array(4096);
 
 // ── SPECTROGRAM ───────────────────────────────────────────────
 let spectroCanvas    = null;
 let spectroCtx2      = null;
-let spectroStripData = null;   // ImageData(2, H) — reused every frame
+let spectroStripData = null;
 let spectroSW        = 0;
 let spectroSH        = 0;
 
-// Heatmap lookup tables: black → purple → red → yellow → white
+// Heatmap lookup tables — rebuilt per theme
 const heatR = new Uint8Array(256);
 const heatG = new Uint8Array(256);
 const heatB = new Uint8Array(256);
-(function buildHeat() {
-  // [value, r, g, b] stops
+
+function buildHeat(bgHex, accentHex, midHex, highlightHex) {
+  const bg = hexToRgb(bgHex);
+  const ac = hexToRgb(accentHex);
+  const md = hexToRgb(midHex);
+  const hi = hexToRgb(highlightHex);
+
   const stops = [
-    [0,   0,   0,   0  ],
-    [80,  80,  0,   110 ],
-    [150, 200, 0,   30  ],
-    [210, 255, 160, 0   ],
-    [255, 255, 255, 255 ],
+    [0,   bg[0], bg[1], bg[2]],
+    [80,  ac[0], ac[1], ac[2]],
+    [160, md[0], md[1], md[2]],
+    [220, hi[0], hi[1], hi[2]],
+    [255, 255,   255,   255  ],
   ];
+
   for (let v = 0; v < 256; v++) {
     let lo = stops[0], hi = stops[1];
     for (let s = 1; s < stops.length - 1; s++) {
@@ -576,7 +955,10 @@ const heatB = new Uint8Array(256);
     heatG[v] = Math.round(lo[2] + (hi[2] - lo[2]) * t);
     heatB[v] = Math.round(lo[3] + (hi[3] - lo[3]) * t);
   }
-})();
+}
+
+// Build initial heatmap from default theme
+buildHeat(THEMES[0].bgColor, THEMES[0].accentColor, THEMES[0].midColor, THEMES[0].highlightColor);
 
 function ensureSpectrogram(W, H) {
   if (spectroCanvas && spectroSW === W && spectroSH === H) return;
@@ -584,18 +966,19 @@ function ensureSpectrogram(W, H) {
   spectroCanvas.width  = W;
   spectroCanvas.height = H;
   spectroCtx2 = spectroCanvas.getContext('2d');
-  spectroCtx2.fillStyle = '#000';
+  spectroCtx2.fillStyle = THEME.bgColor;
   spectroCtx2.fillRect(0, 0, W, H);
   spectroStripData = spectroCtx2.createImageData(2, H);
   spectroSW = W;
   spectroSH = H;
 }
 
+
 /* ═══════════════════════════════════════════════════════════════
    MODE RENDERERS
 ═══════════════════════════════════════════════════════════════ */
 function renderBars(freq, W, H) {
-  g.fillStyle = '#0f0f11';
+  g.fillStyle = THEME.bgColor;
   g.fillRect(0, 0, W, H);
   if (!freq) return;
 
@@ -606,22 +989,26 @@ function renderBars(freq, W, H) {
     barsGradH = H;
   }
 
+  const barCount = params.barCount;
   const binCount = freq.length;
-  const barW     = W / BAR_COUNT;
+  const barW     = W / barCount;
   const drawW    = Math.max(1, barW - 1);
   const centerY  = H * 0.5;
   const maxBarH  = centerY * 0.95;
+  const smoothK  = 0.08 + 0.14 * params.motionAmount;
 
   g.fillStyle = barsGrad;
 
-  for (let i = 0; i < BAR_COUNT; i++) {
-    const lo = Math.floor(i       * binCount / BAR_COUNT);
-    const hi = Math.floor((i + 1) * binCount / BAR_COUNT);
+  for (let i = 0; i < barCount; i++) {
+    // When mirror is on, right half maps to mirrored frequency bins
+    const srcI = (params.mirror && i >= barCount / 2) ? barCount - 1 - i : i;
+    const lo = Math.floor(srcI       * binCount / barCount);
+    const hi = Math.floor((srcI + 1) * binCount / barCount);
     let sum = 0;
     for (let b = lo; b < hi; b++) sum += freq[b];
     const newVal = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
 
-    barHeights[i] += (newVal - barHeights[i]) * 0.15;
+    barHeights[i] += (newVal - barHeights[i]) * smoothK;
     const bh = barHeights[i] * maxBarH;
     const x  = i * barW;
 
@@ -631,35 +1018,35 @@ function renderBars(freq, W, H) {
 }
 
 function renderWaveform(time, W, H) {
-  g.fillStyle = '#0f0f11';
+  g.fillStyle = THEME.bgColor;
   g.fillRect(0, 0, W, H);
   if (!time) return;
 
-  wavePhase = (wavePhase + 0.002) % 1;
+  wavePhase = (wavePhase + 0.004 * params.motionAmount) % 1;
   const tLen    = time.length;
   const phShift = Math.floor(wavePhase * tLen);
   const centerY = H * 0.5;
   const amp     = H * 0.42;
   const [wr, wg, wb] = THEME.waveRGB;
 
-  // Precompute y values (no per-frame allocation — reuse waveYBuf)
   if (W > waveYBuf.length) waveYBuf = new Float32Array(W * 2);
   for (let i = 0; i < W; i++) {
     const idx = (phShift + Math.floor(i * tLen / W)) % tLen;
     waveYBuf[i] = centerY + ((time[idx] - 128) / 128) * amp;
   }
 
-  // Fill: area between waveform and center line
-  g.beginPath();
-  g.moveTo(0, waveYBuf[0]);
-  for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
-  g.lineTo(W, centerY);
-  g.lineTo(0, centerY);
-  g.closePath();
-  g.fillStyle = `rgba(${wr},${wg},${wb},0.08)`;
-  g.fill();
+  if (params.waveformFill) {
+    g.beginPath();
+    g.moveTo(0, waveYBuf[0]);
+    for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
+    g.lineTo(W, centerY);
+    g.lineTo(0, centerY);
+    g.closePath();
+    g.fillStyle = `rgba(${wr},${wg},${wb},0.08)`;
+    g.fill();
+  }
 
-  // Glow line: 6px wide (2px + 4px wider), 0.15 opacity
+  // Glow line
   g.beginPath();
   g.moveTo(0, waveYBuf[0]);
   for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
@@ -667,7 +1054,7 @@ function renderWaveform(time, W, H) {
   g.lineWidth   = 6;
   g.stroke();
 
-  // Main line: 2px
+  // Main line
   g.beginPath();
   g.moveTo(0, waveYBuf[0]);
   for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
@@ -684,18 +1071,16 @@ function renderSpectrogram(freq, W, H) {
     const sh = spectroSH;
     const sd = spectroStripData;
 
-    // Build heatmap strip (y=0 = high freq, y=sh-1 = low freq)
     for (let y = 0; y < sh; y++) {
       const binIdx = Math.min(binCount - 1, Math.floor((1 - y / sh) * binCount));
       const val = freq[binIdx];
-      const p   = y * 8;  // 2 pixels × 4 channels each
+      const p   = y * 8;
       sd.data[p]     = heatR[val]; sd.data[p + 1] = heatG[val];
       sd.data[p + 2] = heatB[val]; sd.data[p + 3] = 255;
       sd.data[p + 4] = heatR[val]; sd.data[p + 5] = heatG[val];
       sd.data[p + 6] = heatB[val]; sd.data[p + 7] = 255;
     }
 
-    // Shift buffer left by 2px, then stamp new strip on the right
     spectroCtx2.drawImage(spectroCanvas, -2, 0);
     spectroCtx2.putImageData(sd, spectroSW - 2, 0);
   }
@@ -703,19 +1088,18 @@ function renderSpectrogram(freq, W, H) {
   g.drawImage(spectroCanvas, 0, 0, W, H);
 }
 
+
 /* ═══════════════════════════════════════════════════════════════
    MODE SWITCH
 ═══════════════════════════════════════════════════════════════ */
 function switchMode(mode) {
   currentMode = mode;
 
-  // Clear main canvas
-  g.fillStyle = '#0f0f11';
+  g.fillStyle = THEME.bgColor;
   g.fillRect(0, 0, logicalW, logicalH);
 
-  // Clear spectrogram buffer so old data does not persist
   if (mode === 'spectrogram' && spectroCanvas) {
-    spectroCtx2.fillStyle = '#000';
+    spectroCtx2.fillStyle = THEME.bgColor;
     spectroCtx2.fillRect(0, 0, spectroSW, spectroSH);
   }
 
@@ -724,10 +1108,9 @@ function switchMode(mode) {
   document.getElementById('btn-mode-spectrogram').classList.toggle('active', mode === 'spectrogram');
 }
 
+
 /* ═══════════════════════════════════════════════════════════════
    RENDER  (dispatches to active mode renderer)
-   freq  → Uint8Array(4096), byte frequency data 0-255
-   time  → Uint8Array(8192), byte time-domain data 0-255
 ═══════════════════════════════════════════════════════════════ */
 function render(freq, time) {
   const W = logicalW;
@@ -738,6 +1121,63 @@ function render(freq, time) {
     case 'spectrogram': renderSpectrogram(freq, W, H); break;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME SYSTEM
+═══════════════════════════════════════════════════════════════ */
+function applyTheme(index) {
+  params.themeIndex = index;
+  const t = THEMES[index];
+
+  THEME.bgColor   = t.bgColor;
+  THEME.accent    = t.accentColor;
+  THEME.highlight = t.highlightColor;
+  THEME.mid       = t.midColor;
+  THEME.waveRGB   = hexToRgb(t.highlightColor);
+
+  document.documentElement.style.setProperty('--accent-color', t.highlightColor);
+
+  // Invalidate gradient cache
+  barsGradH = -1;
+
+  // Update canvas background
+  canvasWrap.style.background = t.bgColor;
+
+  // Rebuild heatmap for spectrogram
+  buildHeat(t.bgColor, t.accentColor, t.midColor, t.highlightColor);
+
+  // Clear spectrogram history so stale colors don't persist
+  if (spectroCtx2) {
+    spectroCtx2.fillStyle = t.bgColor;
+    spectroCtx2.fillRect(0, 0, spectroSW, spectroSH);
+  }
+
+  // Update active swatch highlight
+  document.querySelectorAll('.swatch').forEach((sw, i) => {
+    sw.classList.toggle('active', i === index);
+  });
+}
+
+function buildSwatches() {
+  const grid = document.getElementById('swatch-grid');
+  THEMES.forEach((t, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (i === 0 ? ' active' : '');
+    sw.style.background = `linear-gradient(145deg, ${t.bgColor} 0%, ${t.accentColor} 45%, ${t.highlightColor} 100%)`;
+    sw.dataset.themeIndex = i;
+    sw.innerHTML = `<span class="swatch-name">${t.name}</span>`;
+    grid.appendChild(sw);
+  });
+
+  grid.addEventListener('click', e => {
+    const sw = e.target.closest('.swatch');
+    if (!sw) return;
+    applyTheme(parseInt(sw.dataset.themeIndex, 10));
+  });
+}
+
+buildSwatches();
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -766,7 +1206,6 @@ const clipBadge = document.getElementById('clip-badge');
 let   clipTimer = null;
 
 function updateLevelMeter(rms) {
-  // Scale so that moderate audio (rms ≈ 0.15) fills ~60% of the bar
   const pct = Math.min(100, rms * 420);
   levelBar.style.width = pct + '%';
 
@@ -788,7 +1227,6 @@ function loop(now) {
   tickFPS(now);
 
   const running = AudioEngine.getState() === 'running';
-
   idleEl.style.display = (running && hasSource) ? 'none' : '';
 
   if (!running) {
@@ -807,7 +1245,7 @@ requestAnimationFrame(loop);
 
 
 /* ═══════════════════════════════════════════════════════════════
-   UI BINDINGS
+   UI BINDINGS — source buttons
 ═══════════════════════════════════════════════════════════════ */
 const btnMic    = document.getElementById('btn-mic');
 const btnFile   = document.getElementById('btn-file');
@@ -841,7 +1279,6 @@ function setActive(which) {
   btnFile.classList.toggle('active', which === 'file');
 }
 
-// ── Mic button ────────────────────────────────────────────────
 btnMic.addEventListener('click', async () => {
   btnMic.disabled = true;
   btnMic.textContent = 'Connecting…';
@@ -861,7 +1298,6 @@ btnMic.addEventListener('click', async () => {
   }
 });
 
-// ── File button ───────────────────────────────────────────────
 btnFile.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', async () => {
@@ -895,18 +1331,12 @@ function isMobile() {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
-if (isMobile()) {
-  tapOver.classList.add('show');
-}
+if (isMobile()) tapOver.classList.add('show');
 
 async function resumeOnGesture() {
   const ac = AudioEngine.getContext();
-  if (ac && ac.state === 'suspended') {
-    await AudioEngine.resume();
-  }
-  if (AudioEngine.getState() === 'running') {
-    tapOver.classList.remove('show');
-  }
+  if (ac && ac.state === 'suspended') await AudioEngine.resume();
+  if (AudioEngine.getState() === 'running') tapOver.classList.remove('show');
 }
 
 document.addEventListener('touchstart', resumeOnGesture, { passive: true, once: false });
@@ -922,6 +1352,66 @@ document.getElementById('btn-mode-waveform').addEventListener('click',
   () => switchMode('waveform'));
 document.getElementById('btn-mode-spectrogram').addEventListener('click',
   () => switchMode('spectrogram'));
+
+
+/* ═══════════════════════════════════════════════════════════════
+   COLLAPSIBLE SECTIONS  (event delegation on sidebar)
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('sidebar').addEventListener('click', e => {
+  const header = e.target.closest('.ctrl-section-header');
+  if (!header) return;
+  header.closest('.ctrl-section').classList.toggle('collapsed');
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ANALYZER CONTROLS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('ctrl-fft-size').addEventListener('change', e => {
+  const size = parseInt(e.target.value, 10);
+  AudioEngine.setFftSize(size);
+  // barHeights must be zeroed to avoid stale heights at new resolution
+  barHeights.fill(0);
+});
+
+document.getElementById('ctrl-smoothing').addEventListener('input', e => {
+  const val = parseFloat(e.target.value);
+  document.getElementById('val-smoothing').textContent = val.toFixed(2);
+  AudioEngine.setSmoothing(val);
+});
+
+document.getElementById('ctrl-gain').addEventListener('input', e => {
+  const val = parseFloat(e.target.value);
+  document.getElementById('val-gain').textContent = val.toFixed(1);
+  AudioEngine.setGain(val);
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   VISUAL CONTROLS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('ctrl-motion').addEventListener('input', e => {
+  params.motionAmount = parseFloat(e.target.value);
+  document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
+});
+
+document.getElementById('ctrl-mirror').addEventListener('click', e => {
+  params.mirror = !params.mirror;
+  e.currentTarget.classList.toggle('active', params.mirror);
+  if (!params.mirror) barHeights.fill(0);  // reset smoothed state on un-mirror
+});
+
+document.getElementById('ctrl-fill').addEventListener('click', e => {
+  params.waveformFill = !params.waveformFill;
+  e.currentTarget.classList.toggle('active', params.waveformFill);
+});
+
+document.getElementById('ctrl-barcount').addEventListener('input', e => {
+  params.barCount = parseInt(e.target.value, 10);
+  document.getElementById('val-barcount').textContent = params.barCount;
+  barHeights.fill(0);   // clear stale smoothed state
+  barsGradH = -1;       // recalculate bar widths next frame
+});
 </script>
 </body>
 </html>
