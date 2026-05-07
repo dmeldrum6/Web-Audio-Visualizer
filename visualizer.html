@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Audio Visualizer</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #0f0f11;
+  color: #fff;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ── Top bar ── */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 18px;
+  background: #1a1a1f;
+  border-bottom: 1px solid #26262d;
+  z-index: 10;
+}
+
+#topbar h1 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  color: #d8d8e2;
+}
+
+#fps-counter {
+  font-size: 11px;
+  color: #44444e;
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: right;
+  letter-spacing: 0.2px;
+}
+
+/* ── Body row ── */
+#body-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: #1a1a1f;
+  border-right: 1px solid #26262d;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #48484f;
+  margin-bottom: 10px;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #28282f;
+  border-radius: 7px;
+  background: #202028;
+  color: #aaaab8;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  outline: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:hover {
+  background: #28283a;
+  border-color: #38384a;
+  color: #d8d8e8;
+}
+
+.btn:active {
+  background: #1a1a26;
+}
+
+.btn.active {
+  background: #152040;
+  border-color: #2458a0;
+  color: #5898e0;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Source label ── */
+#source-label {
+  font-size: 11.5px;
+  color: #555560;
+  text-align: center;
+  min-height: 18px;
+  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Level meter ── */
+#level-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+#clip-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #b83020;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.08s;
+  pointer-events: none;
+}
+
+#clip-badge.visible { opacity: 1; }
+
+#level-track {
+  width: 100%;
+  height: 7px;
+  background: #111118;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #26262d;
+}
+
+#level-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    #22a845 0%,
+    #7ec83a 55%,
+    #e8c020 78%,
+    #e03820 100%
+  );
+  will-change: width;
+}
+
+/* ── Canvas area ── */
+#canvas-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  background: #0f0f11;
+  overflow: hidden;
+}
+
+#viz-canvas {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+
+/* ── Tap overlay (iOS) ── */
+#tap-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(10, 10, 14, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 50;
+  cursor: pointer;
+}
+
+#tap-overlay.show { display: flex; }
+
+#tap-overlay .tap-ring {
+  width: 56px;
+  height: 56px;
+  border: 2px solid #3878d0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tapPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes tapPulse {
+  0%, 100% { transform: scale(1);    opacity: 0.75; }
+  50%       { transform: scale(1.1); opacity: 1;    }
+}
+
+#tap-overlay p {
+  font-size: 15px;
+  color: #b8b8c8;
+  font-weight: 500;
+}
+
+#tap-overlay small {
+  font-size: 11.5px;
+  color: #505058;
+}
+
+/* ── Idle message ── */
+#idle-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#idle-msg span {
+  font-size: 14px;
+  color: #2a2a34;
+  letter-spacing: 0.3px;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <h1>Audio Visualizer</h1>
+    <span id="fps-counter">-- fps</span>
+  </div>
+
+  <!-- Body -->
+  <div id="body-row">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+
+      <!-- Input source section -->
+      <div>
+        <div class="section-label">Input Source</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+
+          <button class="btn" id="btn-mic">
+            <!-- mic icon -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8"  y1="23" x2="16" y2="23"/>
+            </svg>
+            Use Mic
+          </button>
+
+          <button class="btn" id="btn-file">
+            <!-- music note icon -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18V5l12-2v13"/>
+              <circle cx="6"  cy="18" r="3"/>
+              <circle cx="18" cy="16" r="3"/>
+            </svg>
+            Load File
+          </button>
+
+          <input type="file" id="file-input" accept="audio/*" style="display:none">
+        </div>
+        <div id="source-label">No source connected</div>
+      </div>
+
+      <!-- Level meter section -->
+      <div>
+        <div id="level-header">
+          <div class="section-label" style="margin:0">Level</div>
+          <div id="clip-badge">CLIP</div>
+        </div>
+        <div id="level-track">
+          <div id="level-bar"></div>
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+    </div><!-- /sidebar -->
+
+    <!-- Canvas area -->
+    <div id="canvas-wrap">
+      <canvas id="viz-canvas"></canvas>
+
+      <div id="idle-msg">
+        <span>Connect an audio source to begin</span>
+      </div>
+
+      <!-- iOS tap-to-start overlay -->
+      <div id="tap-overlay">
+        <div class="tap-ring">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="#3878d0" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </div>
+        <p>Tap to start audio</p>
+        <small>AudioContext requires a user gesture</small>
+      </div>
+    </div><!-- /canvas-wrap -->
+
+  </div><!-- /body-row -->
+</div><!-- /app -->
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   AUDIO ENGINE
+═══════════════════════════════════════════════════════════════ */
+const AudioEngine = (() => {
+  const FFT_SIZE   = 8192;
+  const SMOOTHING  = 0.8;
+
+  let ctx        = null;
+  let analyser   = null;
+  let compressor = null;
+  let freqBuf    = null;  // reused Uint8Array
+  let timeBuf    = null;  // reused Uint8Array
+
+  let activeSource = null;  // MediaStreamAudioSourceNode | AudioBufferSourceNode
+  let activeStream = null;  // MediaStream for mic
+  let sourceType   = null;  // 'mic' | 'file' | null
+
+  // ── Init ──────────────────────────────────────────────────────
+  function init() {
+    if (ctx) return;
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+
+    analyser = ctx.createAnalyser();
+    analyser.fftSize              = FFT_SIZE;
+    analyser.smoothingTimeConstant = SMOOTHING;
+
+    compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -24;
+    compressor.knee.value      = 10;
+    compressor.ratio.value     = 4;
+    compressor.attack.value    = 0.003;
+    compressor.release.value   = 0.25;
+
+    // Topology: source → analyser → compressor → speakers
+    analyser.connect(compressor);
+    compressor.connect(ctx.destination);
+
+    freqBuf = new Uint8Array(analyser.frequencyBinCount);
+    timeBuf = new Uint8Array(analyser.fftSize);
+  }
+
+  // ── Tear down active source ────────────────────────────────────
+  function disconnectActive() {
+    if (activeSource) {
+      try { activeSource.disconnect(); } catch (_) {}
+      if (typeof activeSource.stop === 'function') {
+        try { activeSource.stop(); } catch (_) {}
+      }
+      activeSource = null;
+    }
+    if (activeStream) {
+      activeStream.getTracks().forEach(t => t.stop());
+      activeStream = null;
+    }
+    sourceType = null;
+  }
+
+  // ── Mic ────────────────────────────────────────────────────────
+  async function connectMic() {
+    init();
+    disconnectActive();
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    activeStream = stream;
+
+    if (ctx.state === 'suspended') await ctx.resume();
+
+    const node = ctx.createMediaStreamSource(stream);
+    node.connect(analyser);
+    activeSource = node;
+    sourceType   = 'mic';
+  }
+
+  // ── File ───────────────────────────────────────────────────────
+  async function connectFile(file) {
+    init();
+    disconnectActive();
+
+    const arrayBuf  = await file.arrayBuffer();
+    const audioBuf  = await ctx.decodeAudioData(arrayBuf);
+
+    if (ctx.state === 'suspended') await ctx.resume();
+
+    const node = ctx.createBufferSource();
+    node.buffer = audioBuf;
+    node.loop   = true;
+    node.connect(analyser);
+    node.start(0);
+    activeSource = node;
+    sourceType   = 'file';
+  }
+
+  // ── Data accessors (no allocation) ────────────────────────────
+  function getFrequencyData() {
+    if (!analyser) return null;
+    analyser.getByteFrequencyData(freqBuf);
+    return freqBuf;
+  }
+
+  function getTimeDomainData() {
+    if (!analyser) return null;
+    analyser.getByteTimeDomainData(timeBuf);
+    return timeBuf;
+  }
+
+  // ── RMS level 0–1 ─────────────────────────────────────────────
+  function getRMS() {
+    if (!timeBuf) return 0;
+    let sum = 0;
+    const len = timeBuf.length;
+    for (let i = 0; i < len; i++) {
+      const s = (timeBuf[i] - 128) / 128;
+      sum += s * s;
+    }
+    return Math.sqrt(sum / len);
+  }
+
+  // ── Context control ───────────────────────────────────────────
+  async function resume() {
+    if (ctx && ctx.state === 'suspended') await ctx.resume();
+  }
+
+  function getState()      { return ctx ? ctx.state : 'closed'; }
+  function getContext()    { return ctx; }
+  function getSourceType() { return sourceType; }
+
+  return {
+    init, connectMic, connectFile,
+    getFrequencyData, getTimeDomainData, getRMS,
+    getState, getContext, getSourceType, resume,
+  };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CANVAS + RESIZE
+═══════════════════════════════════════════════════════════════ */
+const wrap   = document.getElementById('canvas-wrap');
+const canvas = document.getElementById('viz-canvas');
+const g      = canvas.getContext('2d');
+const idleEl = document.getElementById('idle-msg');
+
+let logicalW = 1, logicalH = 1;
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  logicalW = wrap.clientWidth;
+  logicalH = wrap.clientHeight;
+  canvas.width  = Math.round(logicalW * dpr);
+  canvas.height = Math.round(logicalH * dpr);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+new ResizeObserver(resizeCanvas).observe(wrap);
+resizeCanvas();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER STUB
+   Replace the body of this function to add visualizations.
+   freq  → Uint8Array(4096), byte frequency data 0-255
+   time  → Uint8Array(8192), byte time-domain data 0-255
+═══════════════════════════════════════════════════════════════ */
+function render(freq, time) {
+  const W = logicalW;
+  const H = logicalH;
+
+  // Background
+  g.fillStyle = '#0f0f11';
+  g.fillRect(0, 0, W, H);
+
+  if (!freq || !time) return;
+
+  // ── Frequency bars ────────────────────────────────────────────
+  const binCount = freq.length;
+  // Use the lower half of bins (more musically relevant)
+  const useBins = Math.floor(binCount * 0.6);
+  const barCount = Math.min(useBins, 320);
+  const barW = W / barCount;
+  const gap  = barW > 3 ? 1 : 0;
+
+  for (let i = 0; i < barCount; i++) {
+    // Average a small range of bins for smoother bars when barCount < binCount
+    const lo = Math.floor(i * useBins / barCount);
+    const hi = Math.floor((i + 1) * useBins / barCount);
+    let sum = 0;
+    for (let b = lo; b <= hi && b < binCount; b++) sum += freq[b];
+    const v = sum / ((hi - lo + 1) * 255);
+
+    const barH  = v * H * 0.82;
+    const x     = i * barW;
+    const y     = H - barH;
+
+    // Gradient colouring: cool blue at low freq → warm red at high
+    const hue  = 220 - i / barCount * 200;
+    const lit  = 28 + v * 38;
+    const sat  = 55 + v * 30;
+    g.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
+    g.fillRect(x, y, Math.max(1, barW - gap), barH);
+  }
+
+  // ── Waveform overlay ──────────────────────────────────────────
+  const tLen = time.length;
+  g.beginPath();
+  g.strokeStyle = 'rgba(200,200,220,0.18)';
+  g.lineWidth = 1.5;
+  for (let i = 0; i < tLen; i++) {
+    const x = (i / tLen) * W;
+    const y = ((time[i] - 128) / 128) * (H * 0.18) + H * 0.5;
+    i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+  }
+  g.stroke();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FPS COUNTER
+═══════════════════════════════════════════════════════════════ */
+const fpsEl  = document.getElementById('fps-counter');
+let fpsCount = 0;
+let fpsLast  = performance.now();
+
+function tickFPS(now) {
+  fpsCount++;
+  const delta = now - fpsLast;
+  if (delta >= 1000) {
+    fpsEl.textContent = `${Math.round(fpsCount * 1000 / delta)} fps`;
+    fpsCount = 0;
+    fpsLast  = now;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LEVEL METER
+═══════════════════════════════════════════════════════════════ */
+const levelBar  = document.getElementById('level-bar');
+const clipBadge = document.getElementById('clip-badge');
+let   clipTimer = null;
+
+function updateLevelMeter(rms) {
+  // Scale so that moderate audio (rms ≈ 0.15) fills ~60% of the bar
+  const pct = Math.min(100, rms * 420);
+  levelBar.style.width = pct + '%';
+
+  if (rms > 0.9) {
+    clipBadge.classList.add('visible');
+    clearTimeout(clipTimer);
+    clipTimer = setTimeout(() => clipBadge.classList.remove('visible'), 900);
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER LOOP
+═══════════════════════════════════════════════════════════════ */
+let hasSource = false;
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  tickFPS(now);
+
+  const running = AudioEngine.getState() === 'running';
+
+  idleEl.style.display = (running && hasSource) ? 'none' : '';
+
+  if (!running) {
+    render(null, null);
+    return;
+  }
+
+  const freq = AudioEngine.getFrequencyData();
+  const time = AudioEngine.getTimeDomainData();
+
+  render(freq, time);
+  updateLevelMeter(AudioEngine.getRMS());
+}
+
+requestAnimationFrame(loop);
+
+
+/* ═══════════════════════════════════════════════════════════════
+   UI BINDINGS
+═══════════════════════════════════════════════════════════════ */
+const btnMic    = document.getElementById('btn-mic');
+const btnFile   = document.getElementById('btn-file');
+const fileInput = document.getElementById('file-input');
+const srcLabel  = document.getElementById('source-label');
+const tapOver   = document.getElementById('tap-overlay');
+
+const MIC_HTML = `
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8"  y1="23" x2="16" y2="23"/>
+  </svg>
+  Use Mic`;
+
+const FILE_HTML = `
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6"  cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+  </svg>
+  Load File`;
+
+function setActive(which) {
+  btnMic.classList.toggle('active', which === 'mic');
+  btnFile.classList.toggle('active', which === 'file');
+}
+
+// ── Mic button ────────────────────────────────────────────────
+btnMic.addEventListener('click', async () => {
+  btnMic.disabled = true;
+  btnMic.textContent = 'Connecting…';
+  try {
+    await AudioEngine.connectMic();
+    setActive('mic');
+    srcLabel.textContent = 'Microphone active';
+    tapOver.classList.remove('show');
+    hasSource = true;
+  } catch (err) {
+    console.error('[AudioEngine] mic error:', err);
+    srcLabel.textContent = 'Mic error: ' + (err.message || String(err));
+    setActive(null);
+  } finally {
+    btnMic.disabled = false;
+    btnMic.innerHTML = MIC_HTML;
+  }
+});
+
+// ── File button ───────────────────────────────────────────────
+btnFile.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  btnFile.disabled = true;
+  btnFile.textContent = 'Loading…';
+  try {
+    await AudioEngine.connectFile(file);
+    setActive('file');
+    srcLabel.textContent = '▶ ' + file.name;
+    tapOver.classList.remove('show');
+    hasSource = true;
+  } catch (err) {
+    console.error('[AudioEngine] file error:', err);
+    srcLabel.textContent = 'Error: ' + (err.message || String(err));
+    setActive(null);
+  } finally {
+    btnFile.disabled = false;
+    btnFile.innerHTML = FILE_HTML;
+    fileInput.value = '';
+  }
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   iOS / SAFARI — resume AudioContext on first user gesture
+═══════════════════════════════════════════════════════════════ */
+function isMobile() {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+if (isMobile()) {
+  tapOver.classList.add('show');
+}
+
+async function resumeOnGesture() {
+  const ac = AudioEngine.getContext();
+  if (ac && ac.state === 'suspended') {
+    await AudioEngine.resume();
+  }
+  if (AudioEngine.getState() === 'running') {
+    tapOver.classList.remove('show');
+  }
+}
+
+document.addEventListener('touchstart', resumeOnGesture, { passive: true, once: false });
+document.addEventListener('click',      resumeOnGesture, { passive: true, once: false });
+</script>
+</body>
+</html>
