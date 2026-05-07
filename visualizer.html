@@ -48,6 +48,12 @@ html, body {
   color: #d8d8e2;
 }
 
+#topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 #fps-counter {
   font-size: 11px;
   color: #44444e;
@@ -126,6 +132,14 @@ html, body {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Copy link button ── */
+#btn-copy-link {
+  width: auto;
+  padding: 5px 11px;
+  font-size: 11px;
+  height: 30px;
 }
 
 /* ── Source label ── */
@@ -484,6 +498,85 @@ input[type="range"]::-moz-range-thumb {
   text-align: center;
   line-height: 1;
 }
+
+/* ── Preset cards ── */
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #26262d;
+  background: #181820;
+  cursor: pointer;
+  font-size: 11px;
+  color: #888898;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 0;
+}
+
+.preset-card:hover {
+  background: #20202e;
+  border-color: #38384a;
+  color: #c8c8d8;
+}
+
+.preset-card.active {
+  border-color: #2458a0;
+  background: #111828;
+  color: #5898e0;
+}
+
+.preset-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.preset-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-delete {
+  display: none;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  border-radius: 50%;
+  background: #2a1a1a;
+  border: 1px solid #4a2828;
+  color: #a05050;
+  font-size: 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+  font-family: inherit;
+  transition: background 0.1s, color 0.1s;
+}
+
+.preset-delete:hover {
+  background: #4a2020;
+  color: #e07070;
+}
+
+.preset-card:hover .preset-delete {
+  display: flex;
+}
 </style>
 </head>
 <body>
@@ -493,7 +586,10 @@ input[type="range"]::-moz-range-thumb {
   <!-- Top bar -->
   <div id="topbar">
     <h1>Audio Visualizer</h1>
-    <span id="fps-counter">-- fps</span>
+    <div id="topbar-right">
+      <button class="btn" id="btn-copy-link">Copy link</button>
+      <span id="fps-counter">-- fps</span>
+    </div>
   </div>
 
   <!-- Body -->
@@ -641,6 +737,31 @@ input[type="range"]::-moz-range-thumb {
         </div>
       </div>
 
+      <!-- Presets section (collapsible) -->
+      <div class="ctrl-section" id="section-presets">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Presets</div>
+          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ctrl-section-body">
+          <div class="preset-grid" id="preset-grid"></div>
+          <button class="btn" id="btn-save-preset" style="margin-top:2px">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save current
+          </button>
+        </div>
+      </div>
+
       <!-- Theme section -->
       <div>
         <div class="section-label">Theme</div>
@@ -682,14 +803,16 @@ input[type="range"]::-moz-range-thumb {
    PARAMS  — single source of truth for all control state
 ═══════════════════════════════════════════════════════════════ */
 const params = {
+  mode:         'bars',
   fftSize:      8192,
   smoothing:    0.80,
   gain:         1.0,
   motionAmount: 0.5,
   mirror:       false,
-  waveformFill: true,
+  fill:         true,
   barCount:     128,
-  themeIndex:   0,
+  theme:        0,
+  themeName:    'Midnight',
 };
 
 
@@ -1035,7 +1158,7 @@ function renderWaveform(time, W, H) {
     waveYBuf[i] = centerY + ((time[idx] - 128) / 128) * amp;
   }
 
-  if (params.waveformFill) {
+  if (params.fill) {
     g.beginPath();
     g.moveTo(0, waveYBuf[0]);
     for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
@@ -1094,6 +1217,7 @@ function renderSpectrogram(freq, W, H) {
 ═══════════════════════════════════════════════════════════════ */
 function switchMode(mode) {
   currentMode = mode;
+  params.mode = mode;
 
   g.fillStyle = THEME.bgColor;
   g.fillRect(0, 0, logicalW, logicalH);
@@ -1127,7 +1251,8 @@ function render(freq, time) {
    THEME SYSTEM
 ═══════════════════════════════════════════════════════════════ */
 function applyTheme(index) {
-  params.themeIndex = index;
+  params.theme    = index;
+  params.themeName = THEMES[index].name;
   const t = THEMES[index];
 
   THEME.bgColor   = t.bgColor;
@@ -1174,10 +1299,237 @@ function buildSwatches() {
     const sw = e.target.closest('.swatch');
     if (!sw) return;
     applyTheme(parseInt(sw.dataset.themeIndex, 10));
+    markModified();
   });
 }
 
 buildSwatches();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   BUILT-IN PRESETS
+═══════════════════════════════════════════════════════════════ */
+const BUILT_IN_PRESETS = [
+  { version:1, name:'Classic Bars',  mode:'bars',        fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:0, themeName:'Midnight'  },
+  { version:1, name:'Deep Waveform', mode:'waveform',    fftSize:4096,  smoothing:0.85, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:3, themeName:'Neon'       },
+  { version:1, name:'Heat Map',      mode:'spectrogram', fftSize:16384, smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:1, themeName:'Ember'      },
+  { version:1, name:'Mirror Dance',  mode:'bars',        fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.8, mirror:true,  fill:true,  barCount:64,  theme:5, themeName:'Sunrise'    },
+  { version:1, name:'Forensic',      mode:'spectrogram', fftSize:32768, smoothing:0.50, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:4, themeName:'Monochrome' },
+  { version:1, name:'Minimal Wave',  mode:'waveform',    fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.3, mirror:false, fill:false, barCount:128, theme:4, themeName:'Monochrome' },
+  { version:1, name:'Forest Pulse',  mode:'bars',        fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:true,  fill:true,  barCount:128, theme:2, themeName:'Forest'     },
+  { version:1, name:'Neon Storm',    mode:'bars',        fftSize:8192,  smoothing:0.65, gain:1.0, motionAmount:1.0, mirror:false, fill:true,  barCount:256, theme:3, themeName:'Neon'       },
+];
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PRESET ENCODE / DECODE
+═══════════════════════════════════════════════════════════════ */
+function encodePreset(p) {
+  try {
+    const json = JSON.stringify(p);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  } catch (_) { return ''; }
+}
+
+function decodePreset(s) {
+  try {
+    const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
+    const json = decodeURIComponent(escape(atob(pad)));
+    const obj = JSON.parse(json);
+    if (obj && obj.version === 1) return obj;
+  } catch (_) {}
+  return null;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PRESET STATE
+═══════════════════════════════════════════════════════════════ */
+let activePresetName = null;
+
+function markModified() {
+  activePresetName = null;
+  if (window.location.hash) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+  refreshPresetGrid();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SYNC CONTROLS TO PARAMS
+═══════════════════════════════════════════════════════════════ */
+function syncControlsToParams() {
+  document.getElementById('ctrl-fft-size').value = params.fftSize;
+  document.getElementById('ctrl-smoothing').value = params.smoothing;
+  document.getElementById('val-smoothing').textContent = params.smoothing.toFixed(2);
+  document.getElementById('ctrl-gain').value = params.gain;
+  document.getElementById('val-gain').textContent = params.gain.toFixed(1);
+  document.getElementById('ctrl-motion').value = params.motionAmount;
+  document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
+  document.getElementById('ctrl-mirror').classList.toggle('active', params.mirror);
+  document.getElementById('ctrl-fill').classList.toggle('active', params.fill);
+  document.getElementById('ctrl-barcount').value = params.barCount;
+  document.getElementById('val-barcount').textContent = params.barCount;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLY PRESET
+═══════════════════════════════════════════════════════════════ */
+function applyPreset(preset, writeToHash = true) {
+  AudioEngine.setFftSize(preset.fftSize);
+  AudioEngine.setSmoothing(preset.smoothing);
+  AudioEngine.setGain(preset.gain);
+  params.motionAmount = preset.motionAmount;
+  params.mirror       = preset.mirror;
+  params.fill         = preset.fill;
+  params.barCount     = preset.barCount;
+  barHeights.fill(0);
+
+  applyTheme(preset.theme);
+  switchMode(preset.mode);
+  syncControlsToParams();
+
+  activePresetName = preset.name || null;
+
+  if (writeToHash && preset.name) {
+    const encoded = encodePreset(preset);
+    if (encoded) history.replaceState(null, '', '#' + encoded);
+  }
+
+  refreshPresetGrid();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PRESET PERSISTENCE (localStorage)
+═══════════════════════════════════════════════════════════════ */
+const LS_KEY = 'audio-viz-presets-v1';
+
+function loadSavedPresets() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) { return []; }
+}
+
+function persistSavedPresets(list) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (_) {}
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PRESET GRID UI
+═══════════════════════════════════════════════════════════════ */
+function refreshPresetGrid() {
+  const grid = document.getElementById('preset-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  const saved = loadSavedPresets();
+  const all = [
+    ...BUILT_IN_PRESETS.map(p => ({ ...p, _saved: false })),
+    ...saved.map(p => ({ ...p, _saved: true })),
+  ];
+
+  all.forEach(preset => {
+    const themeColor = (THEMES[preset.theme] || THEMES[0]).highlightColor;
+    const isActive   = preset.name === activePresetName;
+
+    const card = document.createElement('div');
+    card.className = 'preset-card' + (isActive ? ' active' : '');
+    card.innerHTML =
+      `<span class="preset-dot" style="background:${themeColor}"></span>` +
+      `<span class="preset-name">${preset.name}</span>` +
+      (preset._saved ? `<button class="preset-delete" title="Delete">✕</button>` : '');
+
+    card.addEventListener('click', e => {
+      if (e.target.closest('.preset-delete')) return;
+      applyPreset(preset);
+    });
+
+    if (preset._saved) {
+      card.querySelector('.preset-delete').addEventListener('click', e => {
+        e.stopPropagation();
+        const updated = loadSavedPresets().filter(p => p.name !== preset.name);
+        persistSavedPresets(updated);
+        if (activePresetName === preset.name) activePresetName = null;
+        refreshPresetGrid();
+      });
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+// Initial render of preset grid
+refreshPresetGrid();
+
+// Save current button
+document.getElementById('btn-save-preset').addEventListener('click', () => {
+  const raw = prompt('Preset name:');
+  if (!raw || !raw.trim()) return;
+  const name = raw.trim();
+
+  const preset = {
+    version: 1, name,
+    mode:        currentMode,
+    fftSize:     params.fftSize,
+    smoothing:   params.smoothing,
+    gain:        params.gain,
+    motionAmount:params.motionAmount,
+    mirror:      params.mirror,
+    fill:        params.fill,
+    barCount:    params.barCount,
+    theme:       params.theme,
+    themeName:   params.themeName,
+  };
+
+  const updated = loadSavedPresets().filter(p => p.name !== name);
+  updated.push(preset);
+  persistSavedPresets(updated);
+
+  activePresetName = name;
+  const encoded = encodePreset(preset);
+  if (encoded) history.replaceState(null, '', '#' + encoded);
+  refreshPresetGrid();
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   URL HASH — initial load
+═══════════════════════════════════════════════════════════════ */
+(function initFromHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return;
+  const preset = decodePreset(hash);
+  if (preset) applyPreset(preset, false);
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   COPY LINK
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('btn-copy-link').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-copy-link');
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+  } catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = window.location.href;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = 'Copy link'; }, 1800);
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1346,12 +1698,18 @@ document.addEventListener('click',      resumeOnGesture, { passive: true, once: 
 /* ═══════════════════════════════════════════════════════════════
    MODE BUTTON BINDINGS
 ═══════════════════════════════════════════════════════════════ */
-document.getElementById('btn-mode-bars').addEventListener('click',
-  () => switchMode('bars'));
-document.getElementById('btn-mode-waveform').addEventListener('click',
-  () => switchMode('waveform'));
-document.getElementById('btn-mode-spectrogram').addEventListener('click',
-  () => switchMode('spectrogram'));
+document.getElementById('btn-mode-bars').addEventListener('click', () => {
+  switchMode('bars');
+  markModified();
+});
+document.getElementById('btn-mode-waveform').addEventListener('click', () => {
+  switchMode('waveform');
+  markModified();
+});
+document.getElementById('btn-mode-spectrogram').addEventListener('click', () => {
+  switchMode('spectrogram');
+  markModified();
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1370,20 +1728,22 @@ document.getElementById('sidebar').addEventListener('click', e => {
 document.getElementById('ctrl-fft-size').addEventListener('change', e => {
   const size = parseInt(e.target.value, 10);
   AudioEngine.setFftSize(size);
-  // barHeights must be zeroed to avoid stale heights at new resolution
   barHeights.fill(0);
+  markModified();
 });
 
 document.getElementById('ctrl-smoothing').addEventListener('input', e => {
   const val = parseFloat(e.target.value);
   document.getElementById('val-smoothing').textContent = val.toFixed(2);
   AudioEngine.setSmoothing(val);
+  markModified();
 });
 
 document.getElementById('ctrl-gain').addEventListener('input', e => {
   const val = parseFloat(e.target.value);
   document.getElementById('val-gain').textContent = val.toFixed(1);
   AudioEngine.setGain(val);
+  markModified();
 });
 
 
@@ -1393,24 +1753,28 @@ document.getElementById('ctrl-gain').addEventListener('input', e => {
 document.getElementById('ctrl-motion').addEventListener('input', e => {
   params.motionAmount = parseFloat(e.target.value);
   document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
+  markModified();
 });
 
 document.getElementById('ctrl-mirror').addEventListener('click', e => {
   params.mirror = !params.mirror;
   e.currentTarget.classList.toggle('active', params.mirror);
-  if (!params.mirror) barHeights.fill(0);  // reset smoothed state on un-mirror
+  if (!params.mirror) barHeights.fill(0);
+  markModified();
 });
 
 document.getElementById('ctrl-fill').addEventListener('click', e => {
-  params.waveformFill = !params.waveformFill;
-  e.currentTarget.classList.toggle('active', params.waveformFill);
+  params.fill = !params.fill;
+  e.currentTarget.classList.toggle('active', params.fill);
+  markModified();
 });
 
 document.getElementById('ctrl-barcount').addEventListener('input', e => {
   params.barCount = parseInt(e.target.value, 10);
   document.getElementById('val-barcount').textContent = params.barCount;
-  barHeights.fill(0);   // clear stale smoothed state
-  barsGradH = -1;       // recalculate bar widths next frame
+  barHeights.fill(0);
+  barsGradH = -1;
+  markModified();
 });
 </script>
 </body>
