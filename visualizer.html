@@ -1389,6 +1389,10 @@ let logicalW = 1, logicalH = 1;
 let vignetteGrad = null;
 let vignetteW = -1, vignetteH = -1;
 
+/* Bars gradient cache — invalidated on resize */
+let barsGrad  = null;
+let barsGradH = -1;
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   logicalW = canvasWrap.clientWidth;
@@ -1413,8 +1417,6 @@ let currentMode = 'bars';
 const MODES = ['bars', 'waveform', 'spectrogram'];
 
 const barHeights = new Float32Array(256);
-let   barsGrad   = null;
-let   barsGradH  = -1;
 
 let wavePhase = 0;
 let waveYBuf  = new Float32Array(4096);
