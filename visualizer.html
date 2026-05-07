@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Audio Visualizer</title>
 <style>
 :root {
@@ -39,6 +43,7 @@ html, body {
   background: #1a1a1f;
   border-bottom: 1px solid #26262d;
   z-index: 10;
+  gap: 8px;
 }
 
 #topbar h1 {
@@ -46,12 +51,14 @@ html, body {
   font-weight: 600;
   letter-spacing: 0.6px;
   color: #d8d8e2;
+  flex-shrink: 0;
 }
 
 #topbar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 #fps-counter {
@@ -134,12 +141,80 @@ html, body {
   cursor: not-allowed;
 }
 
-/* ── Copy link button ── */
+/* ── Copy link / small topbar buttons ── */
 #btn-copy-link {
   width: auto;
   padding: 5px 11px;
   font-size: 11px;
   height: 30px;
+}
+
+/* ── Record button ── */
+#btn-record {
+  width: auto;
+  padding: 5px 11px;
+  font-size: 11px;
+  height: 30px;
+  border-color: #3a1a1a;
+  background: #201818;
+  color: #e05050;
+  gap: 5px;
+}
+#btn-record:hover {
+  background: #2e2020;
+  border-color: #5a2a2a;
+  color: #ff7070;
+}
+#btn-record.recording {
+  background: #2a1010;
+  border-color: #8a2020;
+  color: #ff4040;
+}
+
+/* ── REC badge ── */
+#rec-badge {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff4444;
+  letter-spacing: 0.6px;
+  font-variant-numeric: tabular-nums;
+}
+#rec-badge.show { display: flex; }
+
+#rec-dot {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  border-radius: 50%;
+  background: #ff4444;
+  animation: recPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.15; }
+}
+
+/* ── Shortcuts ? button ── */
+#btn-shortcuts {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #555568;
+  border-color: #26262d;
+  background: transparent;
+  border-radius: 50%;
+}
+#btn-shortcuts:hover {
+  color: #aaaacc;
+  border-color: #38384a;
+  background: #1e1e28;
 }
 
 /* ── Source label ── */
@@ -577,6 +652,230 @@ input[type="range"]::-moz-range-thumb {
 .preset-card:hover .preset-delete {
   display: flex;
 }
+
+/* ── Toast ── */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  background: #1e1e28;
+  border: 1px solid #38384a;
+  color: #d0d0e0;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  max-width: 340px;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  animation: toastIn 0.22s ease forwards;
+  white-space: pre-wrap;
+}
+
+.toast.removing {
+  animation: toastOut 0.28s ease forwards;
+}
+
+.toast.warn {
+  border-color: #6a5500;
+  background: #1c1800;
+  color: #e8c840;
+}
+
+.toast.error {
+  border-color: #5a1010;
+  background: #1e0808;
+  color: #e85050;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-6px) scale(0.96); }
+}
+
+/* ── Shortcuts modal ── */
+#shortcuts-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#shortcuts-modal.hidden { display: none; }
+
+.modal-box {
+  background: #1a1a22;
+  border: 1px solid #2e2e3e;
+  border-radius: 14px;
+  padding: 22px 24px;
+  width: min(380px, 92vw);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.8);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-header h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d8d8e8;
+  letter-spacing: 0.4px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #555568;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-family: inherit;
+  transition: color 0.12s, background 0.12s;
+}
+
+.modal-close:hover { color: #aaa; background: #26262f; }
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #20202c;
+  gap: 12px;
+}
+
+.shortcut-row:last-child { border-bottom: none; }
+
+.shortcut-key {
+  font-size: 11px;
+  font-family: monospace;
+  background: #22222e;
+  border: 1px solid #38384a;
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--accent-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.shortcut-desc {
+  font-size: 11.5px;
+  color: #888898;
+  text-align: right;
+}
+
+/* ── Mobile drawer toggle ── */
+#drawer-toggle {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 16px;
+  z-index: 200;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #1e1e2a;
+  border: 1px solid #38384a;
+  color: #aaaab8;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  transition: background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+#drawer-toggle:hover { background: #28283a; border-color: #4848608; }
+
+/* ── Drawer handle ── */
+#drawer-handle {
+  display: none;
+  justify-content: center;
+  padding: 10px 0 6px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+#drawer-handle-bar {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: #38384a;
+}
+
+/* ── Mobile layout ── */
+@media (max-width: 767px) {
+  #fps-counter { display: none; }
+
+  #canvas-wrap {
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex: none;
+  }
+
+  #sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: unset;
+    height: 60vh;
+    max-height: 80vh;
+    border-right: none;
+    border-top: 1px solid #2e2e3a;
+    border-radius: 16px 16px 0 0;
+    z-index: 150;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0 14px 18px;
+    overflow-y: auto;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.7);
+  }
+
+  #sidebar.open {
+    transform: translateY(0);
+  }
+
+  #body-row {
+    position: relative;
+  }
+
+  #drawer-toggle { display: flex; }
+  #drawer-handle { display: flex; }
+
+  #toast-container { bottom: 80px; }
+}
 </style>
 </head>
 <body>
@@ -587,7 +886,19 @@ input[type="range"]::-moz-range-thumb {
   <div id="topbar">
     <h1>Audio Visualizer</h1>
     <div id="topbar-right">
+      <div id="rec-badge">
+        <span id="rec-dot"></span>
+        <span>REC</span>
+        <span id="rec-time">00:00</span>
+      </div>
+      <button class="btn" id="btn-record" title="Start/stop recording (R)">
+        <svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">
+          <circle cx="5" cy="5" r="5" fill="#e05050"/>
+        </svg>
+        Record
+      </button>
       <button class="btn" id="btn-copy-link">Copy link</button>
+      <button class="btn" id="btn-shortcuts" title="Keyboard shortcuts (?)">?</button>
       <span id="fps-counter">-- fps</span>
     </div>
   </div>
@@ -597,6 +908,11 @@ input[type="range"]::-moz-range-thumb {
 
     <!-- Sidebar -->
     <div id="sidebar">
+
+      <!-- Drag handle (mobile) -->
+      <div id="drawer-handle">
+        <div id="drawer-handle-bar"></div>
+      </div>
 
       <!-- Input source section -->
       <div>
@@ -796,6 +1112,59 @@ input[type="range"]::-moz-range-thumb {
   </div><!-- /body-row -->
 </div><!-- /app -->
 
+<!-- Keyboard shortcuts modal -->
+<div id="shortcuts-modal" class="hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Keyboard Shortcuts</h2>
+      <button class="modal-close" id="btn-close-shortcuts">&#x2715;</button>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-key">Space</span>
+      <span class="shortcut-desc">Play / pause audio</span>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-key">M</span>
+      <span class="shortcut-desc">Cycle visualizer mode</span>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-key">R</span>
+      <span class="shortcut-desc">Start / stop recording</span>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-key">1 – 8</span>
+      <span class="shortcut-desc">Load built-in preset</span>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-key">?</span>
+      <span class="shortcut-desc">Show this dialog</span>
+    </div>
+    <div class="shortcut-row">
+      <span class="shortcut-key">Esc</span>
+      <span class="shortcut-desc">Close dialog</span>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Mobile drawer toggle -->
+<button id="drawer-toggle" aria-label="Toggle controls">
+  <svg id="drawer-icon-open" width="20" height="20" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="6"  x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+  <svg id="drawer-icon-close" width="20" height="20" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       style="display:none">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6"  y1="6" x2="18" y2="18"/>
+  </svg>
+</button>
+
 <script>
 'use strict';
 
@@ -828,7 +1197,6 @@ const THEMES = [
   { name: 'Sunrise',    bgColor: '#0c0608', accentColor: '#7a1040', highlightColor: '#ffd060', midColor: '#e04080' },
 ];
 
-/* mutable theme state — updated by applyTheme() */
 const THEME = {
   bgColor:   THEMES[0].bgColor,
   accent:    THEMES[0].accentColor,
@@ -856,12 +1224,12 @@ const AudioEngine = (() => {
   let compressor = null;
   let freqBuf    = null;
   let timeBuf    = null;
+  let streamDest = null;
 
   let activeSource = null;
   let activeStream = null;
   let sourceType   = null;
 
-  // ── Init ──────────────────────────────────────────────────────
   function init() {
     if (ctx) return;
 
@@ -882,7 +1250,6 @@ const AudioEngine = (() => {
     compressor.attack.value    = 0.003;
     compressor.release.value   = 0.25;
 
-    // Topology: source → gain → analyser → compressor → speakers
     gainNode.connect(analyser);
     analyser.connect(compressor);
     compressor.connect(ctx.destination);
@@ -891,7 +1258,6 @@ const AudioEngine = (() => {
     timeBuf = new Uint8Array(analyser.fftSize);
   }
 
-  // ── Tear down active source ────────────────────────────────────
   function disconnectActive() {
     if (activeSource) {
       try { activeSource.disconnect(); } catch (_) {}
@@ -907,7 +1273,6 @@ const AudioEngine = (() => {
     sourceType = null;
   }
 
-  // ── Mic ────────────────────────────────────────────────────────
   async function connectMic() {
     init();
     disconnectActive();
@@ -923,7 +1288,6 @@ const AudioEngine = (() => {
     sourceType   = 'mic';
   }
 
-  // ── File ───────────────────────────────────────────────────────
   async function connectFile(file) {
     init();
     disconnectActive();
@@ -942,7 +1306,6 @@ const AudioEngine = (() => {
     sourceType   = 'file';
   }
 
-  // ── Live parameter setters ────────────────────────────────────
   function setFftSize(size) {
     params.fftSize = size;
     if (!analyser) return;
@@ -961,7 +1324,6 @@ const AudioEngine = (() => {
     if (gainNode) gainNode.gain.value = val;
   }
 
-  // ── Data accessors (no allocation) ────────────────────────────
   function getFrequencyData() {
     if (!analyser) return null;
     analyser.getByteFrequencyData(freqBuf);
@@ -974,7 +1336,6 @@ const AudioEngine = (() => {
     return timeBuf;
   }
 
-  // ── RMS level 0–1 ─────────────────────────────────────────────
   function getRMS() {
     if (!timeBuf) return 0;
     let sum = 0;
@@ -986,7 +1347,6 @@ const AudioEngine = (() => {
     return Math.sqrt(sum / len);
   }
 
-  // ── Context control ───────────────────────────────────────────
   async function resume() {
     if (ctx && ctx.state === 'suspended') await ctx.resume();
   }
@@ -995,11 +1355,22 @@ const AudioEngine = (() => {
   function getContext()    { return ctx; }
   function getSourceType() { return sourceType; }
 
+  /* Lazily create a MediaStreamDestination and return its audio stream for recording */
+  function getAudioStream() {
+    if (!ctx) return null;
+    if (!streamDest) {
+      streamDest = ctx.createMediaStreamDestination();
+      compressor.connect(streamDest);
+    }
+    return streamDest.stream;
+  }
+
   return {
     init, connectMic, connectFile,
     setFftSize, setSmoothing, setGain,
     getFrequencyData, getTimeDomainData, getRMS,
     getState, getContext, getSourceType, resume,
+    getAudioStream,
   };
 })();
 
@@ -1014,6 +1385,10 @@ const idleEl     = document.getElementById('idle-msg');
 
 let logicalW = 1, logicalH = 1;
 
+/* Vignette gradient cache — invalidated on resize */
+let vignetteGrad = null;
+let vignetteW = -1, vignetteH = -1;
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   logicalW = canvasWrap.clientWidth;
@@ -1021,7 +1396,9 @@ function resizeCanvas() {
   canvas.width  = Math.round(logicalW * dpr);
   canvas.height = Math.round(logicalH * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  barsGradH = -1;  // invalidate cached gradient on resize
+  barsGradH  = -1;
+  vignetteW  = -1;
+  vignetteH  = -1;
 }
 
 new ResizeObserver(resizeCanvas).observe(canvasWrap);
@@ -1033,23 +1410,21 @@ resizeCanvas();
 ═══════════════════════════════════════════════════════════════ */
 let currentMode = 'bars';
 
-// ── BARS ──────────────────────────────────────────────────────
-const barHeights = new Float32Array(256);  // pre-allocated at max bar count
+const MODES = ['bars', 'waveform', 'spectrogram'];
+
+const barHeights = new Float32Array(256);
 let   barsGrad   = null;
 let   barsGradH  = -1;
 
-// ── WAVEFORM ──────────────────────────────────────────────────
 let wavePhase = 0;
 let waveYBuf  = new Float32Array(4096);
 
-// ── SPECTROGRAM ───────────────────────────────────────────────
 let spectroCanvas    = null;
 let spectroCtx2      = null;
 let spectroStripData = null;
 let spectroSW        = 0;
 let spectroSH        = 0;
 
-// Heatmap lookup tables — rebuilt per theme
 const heatR = new Uint8Array(256);
 const heatG = new Uint8Array(256);
 const heatB = new Uint8Array(256);
@@ -1069,18 +1444,17 @@ function buildHeat(bgHex, accentHex, midHex, highlightHex) {
   ];
 
   for (let v = 0; v < 256; v++) {
-    let lo = stops[0], hi = stops[1];
+    let lo = stops[0], hi2 = stops[1];
     for (let s = 1; s < stops.length - 1; s++) {
-      if (v >= stops[s][0]) { lo = stops[s]; hi = stops[s + 1]; }
+      if (v >= stops[s][0]) { lo = stops[s]; hi2 = stops[s + 1]; }
     }
-    const t = lo[0] === hi[0] ? 1 : (v - lo[0]) / (hi[0] - lo[0]);
-    heatR[v] = Math.round(lo[1] + (hi[1] - lo[1]) * t);
-    heatG[v] = Math.round(lo[2] + (hi[2] - lo[2]) * t);
-    heatB[v] = Math.round(lo[3] + (hi[3] - lo[3]) * t);
+    const t = lo[0] === hi2[0] ? 1 : (v - lo[0]) / (hi2[0] - lo[0]);
+    heatR[v] = Math.round(lo[1] + (hi2[1] - lo[1]) * t);
+    heatG[v] = Math.round(lo[2] + (hi2[2] - lo[2]) * t);
+    heatB[v] = Math.round(lo[3] + (hi2[3] - lo[3]) * t);
   }
 }
 
-// Build initial heatmap from default theme
 buildHeat(THEMES[0].bgColor, THEMES[0].accentColor, THEMES[0].midColor, THEMES[0].highlightColor);
 
 function ensureSpectrogram(W, H) {
@@ -1123,7 +1497,6 @@ function renderBars(freq, W, H) {
   g.fillStyle = barsGrad;
 
   for (let i = 0; i < barCount; i++) {
-    // When mirror is on, right half maps to mirrored frequency bins
     const srcI = (params.mirror && i >= barCount / 2) ? barCount - 1 - i : i;
     const lo = Math.floor(srcI       * binCount / barCount);
     const hi = Math.floor((srcI + 1) * binCount / barCount);
@@ -1135,8 +1508,8 @@ function renderBars(freq, W, H) {
     const bh = barHeights[i] * maxBarH;
     const x  = i * barW;
 
-    g.fillRect(x, centerY - bh, drawW, bh);  // upward arm
-    g.fillRect(x, centerY,      drawW, bh);  // downward mirror
+    g.fillRect(x, centerY - bh, drawW, bh);
+    g.fillRect(x, centerY,      drawW, bh);
   }
 }
 
@@ -1150,7 +1523,7 @@ function renderWaveform(time, W, H) {
   const phShift = Math.floor(wavePhase * tLen);
   const centerY = H * 0.5;
   const amp     = H * 0.42;
-  const [wr, wg, wb] = THEME.waveRGB;
+  const [wr, wg2, wb] = THEME.waveRGB;
 
   if (W > waveYBuf.length) waveYBuf = new Float32Array(W * 2);
   for (let i = 0; i < W; i++) {
@@ -1165,23 +1538,21 @@ function renderWaveform(time, W, H) {
     g.lineTo(W, centerY);
     g.lineTo(0, centerY);
     g.closePath();
-    g.fillStyle = `rgba(${wr},${wg},${wb},0.08)`;
+    g.fillStyle = `rgba(${wr},${wg2},${wb},0.08)`;
     g.fill();
   }
 
-  // Glow line
   g.beginPath();
   g.moveTo(0, waveYBuf[0]);
   for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
-  g.strokeStyle = `rgba(${wr},${wg},${wb},0.15)`;
+  g.strokeStyle = `rgba(${wr},${wg2},${wb},0.15)`;
   g.lineWidth   = 6;
   g.stroke();
 
-  // Main line
   g.beginPath();
   g.moveTo(0, waveYBuf[0]);
   for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
-  g.strokeStyle = `rgb(${wr},${wg},${wb})`;
+  g.strokeStyle = `rgb(${wr},${wg2},${wb})`;
   g.lineWidth   = 2;
   g.stroke();
 }
@@ -1213,6 +1584,36 @@ function renderSpectrogram(freq, W, H) {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   VIGNETTE
+═══════════════════════════════════════════════════════════════ */
+function drawVignette(W, H) {
+  if (vignetteW !== W || vignetteH !== H) {
+    const cx = W / 2, cy = H / 2;
+    const r  = Math.sqrt(W * W + H * H) * 0.55;
+    vignetteGrad = g.createRadialGradient(cx, cy, r * 0.25, cx, cy, r);
+    vignetteGrad.addColorStop(0,   'rgba(0,0,0,0)');
+    vignetteGrad.addColorStop(0.6, 'rgba(0,0,0,0)');
+    vignetteGrad.addColorStop(1,   'rgba(0,0,0,0.65)');
+    vignetteW = W;
+    vignetteH = H;
+  }
+  g.fillStyle = vignetteGrad;
+  g.fillRect(0, 0, W, H);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODE TRANSITION
+═══════════════════════════════════════════════════════════════ */
+let modeTransition = null; // { target, startTime }
+
+function switchModeAnimated(mode) {
+  if (mode === currentMode) return;
+  modeTransition = { target: mode, startTime: performance.now() };
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    MODE SWITCH
 ═══════════════════════════════════════════════════════════════ */
 function switchMode(mode) {
@@ -1232,6 +1633,13 @@ function switchMode(mode) {
   document.getElementById('btn-mode-spectrogram').classList.toggle('active', mode === 'spectrogram');
 }
 
+function cycleMode() {
+  const idx  = MODES.indexOf(currentMode);
+  const next = MODES[(idx + 1) % MODES.length];
+  switchModeAnimated(next);
+  markModified();
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    RENDER  (dispatches to active mode renderer)
@@ -1239,10 +1647,25 @@ function switchMode(mode) {
 function render(freq, time) {
   const W = logicalW;
   const H = logicalH;
+
   switch (currentMode) {
     case 'bars':        renderBars(freq, W, H);        break;
     case 'waveform':    renderWaveform(time, W, H);    break;
     case 'spectrogram': renderSpectrogram(freq, W, H); break;
+  }
+
+  drawVignette(W, H);
+
+  /* Mode transition fade-to-black overlay */
+  if (modeTransition) {
+    const elapsed = performance.now() - modeTransition.startTime;
+    const alpha   = Math.min(1, elapsed / 200);
+    g.fillStyle   = `rgba(0,0,0,${alpha})`;
+    g.fillRect(0, 0, W, H);
+    if (alpha >= 1) {
+      switchMode(modeTransition.target);
+      modeTransition = null;
+    }
   }
 }
 
@@ -1263,22 +1686,18 @@ function applyTheme(index) {
 
   document.documentElement.style.setProperty('--accent-color', t.highlightColor);
 
-  // Invalidate gradient cache
   barsGradH = -1;
+  vignetteW = -1;
 
-  // Update canvas background
   canvasWrap.style.background = t.bgColor;
 
-  // Rebuild heatmap for spectrogram
   buildHeat(t.bgColor, t.accentColor, t.midColor, t.highlightColor);
 
-  // Clear spectrogram history so stale colors don't persist
   if (spectroCtx2) {
     spectroCtx2.fillStyle = t.bgColor;
     spectroCtx2.fillRect(0, 0, spectroSW, spectroSH);
   }
 
-  // Update active swatch highlight
   document.querySelectorAll('.swatch').forEach((sw, i) => {
     sw.classList.toggle('active', i === index);
   });
@@ -1444,7 +1863,7 @@ function refreshPresetGrid() {
     card.innerHTML =
       `<span class="preset-dot" style="background:${themeColor}"></span>` +
       `<span class="preset-name">${preset.name}</span>` +
-      (preset._saved ? `<button class="preset-delete" title="Delete">✕</button>` : '');
+      (preset._saved ? `<button class="preset-delete" title="Delete">&#x2715;</button>` : '');
 
     card.addEventListener('click', e => {
       if (e.target.closest('.preset-delete')) return;
@@ -1465,10 +1884,8 @@ function refreshPresetGrid() {
   });
 }
 
-// Initial render of preset grid
 refreshPresetGrid();
 
-// Save current button
 document.getElementById('btn-save-preset').addEventListener('click', () => {
   const raw = prompt('Preset name:');
   if (!raw || !raw.trim()) return;
@@ -1570,6 +1987,26 @@ function updateLevelMeter(rms) {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   SAFE-LISTEN  — warn when RMS stays high for 3+ seconds
+═══════════════════════════════════════════════════════════════ */
+let highRmsStart    = 0;
+let safListenWarned = false;
+
+function checkSafeListen(rms) {
+  if (rms > 0.85) {
+    if (highRmsStart === 0) highRmsStart = performance.now();
+    if (!safListenWarned && (performance.now() - highRmsStart) >= 3000) {
+      safListenWarned = true;
+      showToast('Audio level is high — consider reducing gain', 'warn');
+    }
+  } else {
+    highRmsStart    = 0;
+    safListenWarned = false;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    RENDER LOOP
 ═══════════════════════════════════════════════════════════════ */
 let hasSource = false;
@@ -1590,10 +2027,160 @@ function loop(now) {
   const time = AudioEngine.getTimeDomainData();
 
   render(freq, time);
-  updateLevelMeter(AudioEngine.getRMS());
+
+  const rms = AudioEngine.getRMS();
+  updateLevelMeter(rms);
+  checkSafeListen(rms);
 }
 
 requestAnimationFrame(loop);
+
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST SYSTEM
+═══════════════════════════════════════════════════════════════ */
+const toastContainer = document.getElementById('toast-container');
+
+function showToast(message, type = 'info', duration = 4000) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type !== 'info' ? ' ' + type : '');
+  el.textContent = message;
+  toastContainer.appendChild(el);
+
+  setTimeout(() => {
+    el.classList.add('removing');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }, duration);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RECORDING
+═══════════════════════════════════════════════════════════════ */
+let recorder        = null;
+let recordChunks    = [];
+let isRecording     = false;
+let recordStartTime = 0;
+let recTimerInterval = null;
+let recMaxTimer     = null;
+let recWarnTimer    = null;
+
+const btnRecord  = document.getElementById('btn-record');
+const recBadge   = document.getElementById('rec-badge');
+const recTimeEl  = document.getElementById('rec-time');
+const recIconEl  = document.getElementById('rec-icon');
+
+const REC_ICON_CIRCLE = `<circle cx="5" cy="5" r="5" fill="#e05050"/>`;
+const REC_ICON_STOP   = `<rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/>`;
+
+function formatRecTime(ms) {
+  const s   = Math.floor(ms / 1000);
+  const mm  = String(Math.floor(s / 60)).padStart(2, '0');
+  const ss  = String(s % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function updateRecordTimer() {
+  recTimeEl.textContent = formatRecTime(Date.now() - recordStartTime);
+}
+
+function updateRecordUI() {
+  if (isRecording) {
+    btnRecord.classList.add('recording');
+    btnRecord.innerHTML = `<svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">${REC_ICON_STOP}</svg> Stop`;
+    recBadge.classList.add('show');
+  } else {
+    btnRecord.classList.remove('recording');
+    btnRecord.innerHTML = `<svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">${REC_ICON_CIRCLE}</svg> Record`;
+    recBadge.classList.remove('show');
+    recTimeEl.textContent = '00:00';
+  }
+}
+
+function saveRecording() {
+  if (!recordChunks.length) return;
+  const blob = new Blob(recordChunks, { type: 'video/webm' });
+  const url  = URL.createObjectURL(blob);
+  const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `visualizer-${ts}.webm`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  recordChunks = [];
+}
+
+function stopRecording() {
+  if (!isRecording || !recorder) return;
+  clearInterval(recTimerInterval);
+  clearTimeout(recMaxTimer);
+  clearTimeout(recWarnTimer);
+  recTimerInterval = null;
+  recMaxTimer      = null;
+  recWarnTimer     = null;
+  isRecording      = false;
+  updateRecordUI();
+  recorder.stop();
+  recorder = null;
+}
+
+async function startRecording() {
+  if (!canvas.captureStream || !window.MediaRecorder) {
+    showToast('Recording not supported in this browser — try Chrome or Edge', 'error');
+    return;
+  }
+
+  const videoStream = canvas.captureStream(30);
+  const audioStream = AudioEngine.getAudioStream();
+
+  let tracks = [...videoStream.getVideoTracks()];
+  if (audioStream) tracks = [...tracks, ...audioStream.getAudioTracks()];
+
+  const combined = new MediaStream(tracks);
+
+  let mimeType = 'video/webm';
+  try {
+    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+      mimeType = 'video/webm;codecs=vp9,opus';
+    }
+  } catch (_) {}
+
+  try {
+    recorder = new MediaRecorder(combined, { mimeType });
+  } catch (err) {
+    showToast('Recording not supported in this browser — try Chrome or Edge', 'error');
+    return;
+  }
+
+  recordChunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) recordChunks.push(e.data); };
+  recorder.onstop = saveRecording;
+  recorder.start(100);
+
+  recordStartTime  = Date.now();
+  isRecording      = true;
+  updateRecordUI();
+
+  recTimerInterval = setInterval(updateRecordTimer, 500);
+
+  /* Warning at 4:50 */
+  recWarnTimer = setTimeout(() => {
+    showToast('Recording will auto-stop in 10 seconds', 'warn');
+  }, 290000);
+
+  /* Auto-stop at 5:00 */
+  recMaxTimer = setTimeout(() => {
+    showToast('Max recording time (5:00) reached — saving…', 'warn');
+    stopRecording();
+  }, 300000);
+}
+
+function toggleRecording() {
+  if (isRecording) stopRecording();
+  else startRecording();
+}
+
+btnRecord.addEventListener('click', toggleRecording);
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1696,24 +2283,24 @@ document.addEventListener('click',      resumeOnGesture, { passive: true, once: 
 
 
 /* ═══════════════════════════════════════════════════════════════
-   MODE BUTTON BINDINGS
+   MODE BUTTON BINDINGS  (animated transitions)
 ═══════════════════════════════════════════════════════════════ */
 document.getElementById('btn-mode-bars').addEventListener('click', () => {
-  switchMode('bars');
+  switchModeAnimated('bars');
   markModified();
 });
 document.getElementById('btn-mode-waveform').addEventListener('click', () => {
-  switchMode('waveform');
+  switchModeAnimated('waveform');
   markModified();
 });
 document.getElementById('btn-mode-spectrogram').addEventListener('click', () => {
-  switchMode('spectrogram');
+  switchModeAnimated('spectrogram');
   markModified();
 });
 
 
 /* ═══════════════════════════════════════════════════════════════
-   COLLAPSIBLE SECTIONS  (event delegation on sidebar)
+   COLLAPSIBLE SECTIONS
 ═══════════════════════════════════════════════════════════════ */
 document.getElementById('sidebar').addEventListener('click', e => {
   const header = e.target.closest('.ctrl-section-header');
@@ -1776,6 +2363,180 @@ document.getElementById('ctrl-barcount').addEventListener('input', e => {
   barsGradH = -1;
   markModified();
 });
+
+
+/* ═══════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+═══════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  switch (e.key) {
+    case ' ':
+      e.preventDefault();
+      (async () => {
+        const ac = AudioEngine.getContext();
+        if (!ac) return;
+        if (ac.state === 'running')   await ac.suspend();
+        else if (ac.state === 'suspended') await ac.resume();
+      })();
+      break;
+
+    case 'm':
+    case 'M':
+      cycleMode();
+      break;
+
+    case 'r':
+    case 'R':
+      toggleRecording();
+      break;
+
+    case '?':
+      openShortcutsModal();
+      break;
+
+    case 'Escape':
+      closeShortcutsModal();
+      break;
+
+    default: {
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= 8 && BUILT_IN_PRESETS[n - 1]) {
+        applyPreset(BUILT_IN_PRESETS[n - 1]);
+      }
+      break;
+    }
+  }
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SHORTCUTS MODAL
+═══════════════════════════════════════════════════════════════ */
+const shortcutsModal = document.getElementById('shortcuts-modal');
+
+function openShortcutsModal()  { shortcutsModal.classList.remove('hidden'); }
+function closeShortcutsModal() { shortcutsModal.classList.add('hidden'); }
+
+document.getElementById('btn-shortcuts').addEventListener('click', openShortcutsModal);
+document.getElementById('btn-close-shortcuts').addEventListener('click', closeShortcutsModal);
+
+shortcutsModal.addEventListener('click', e => {
+  if (e.target === shortcutsModal) closeShortcutsModal();
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE BOTTOM DRAWER
+═══════════════════════════════════════════════════════════════ */
+const sidebar      = document.getElementById('sidebar');
+const drawerToggle = document.getElementById('drawer-toggle');
+const iconOpen     = document.getElementById('drawer-icon-open');
+const iconClose    = document.getElementById('drawer-icon-close');
+
+let drawerOpen = false;
+
+function setDrawer(open) {
+  drawerOpen = open;
+  sidebar.classList.toggle('open', open);
+  iconOpen.style.display  = open ? 'none'  : '';
+  iconClose.style.display = open ? ''      : 'none';
+}
+
+drawerToggle.addEventListener('click', () => setDrawer(!drawerOpen));
+
+/* Close drawer on canvas tap (mobile) */
+canvasWrap.addEventListener('click', () => {
+  if (drawerOpen && isMobile()) setDrawer(false);
+}, { passive: true });
+
+
+/* ═══════════════════════════════════════════════════════════════
+   TOUCH SWIPE — left/right on canvas to cycle modes
+═══════════════════════════════════════════════════════════════ */
+let swipeStartX = 0;
+let swipeStartY = 0;
+
+canvas.addEventListener('touchstart', e => {
+  swipeStartX = e.touches[0].clientX;
+  swipeStartY = e.touches[0].clientY;
+}, { passive: true });
+
+canvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  const dy = e.changedTouches[0].clientY - swipeStartY;
+
+  if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return;
+
+  const idx  = MODES.indexOf(currentMode);
+  const next = dx < 0
+    ? MODES[(idx + 1) % MODES.length]
+    : MODES[(idx + MODES.length - 1) % MODES.length];
+  switchModeAnimated(next);
+  markModified();
+}, { passive: true });
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PWA — inline manifest + service worker via blob URL
+═══════════════════════════════════════════════════════════════ */
+(function initPWA() {
+  /* Inject web app manifest */
+  const manifest = {
+    name: 'Audio Visualizer',
+    short_name: 'Visualizer',
+    start_url: location.href,
+    display: 'standalone',
+    background_color: '#0f0f11',
+    theme_color: '#1a1a1f',
+    icons: [],
+  };
+  const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const manifestUrl  = URL.createObjectURL(manifestBlob);
+  const linkEl       = document.createElement('link');
+  linkEl.rel  = 'manifest';
+  linkEl.href = manifestUrl;
+  document.head.appendChild(linkEl);
+
+  /* Register service worker from blob URL for offline caching */
+  if (!('serviceWorker' in navigator)) return;
+
+  const SW = `
+'use strict';
+const CACHE = 'av-v1';
+self.addEventListener('install', e => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll([self.registration.scope])));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => clients.claim())
+  );
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      const net = fetch(e.request).then(res => {
+        if (res && res.status === 200)
+          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+        return res;
+      }).catch(() => cached);
+      return cached || net;
+    })
+  );
+});
+`;
+  const swBlob = new Blob([SW], { type: 'text/javascript' });
+  const swUrl  = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, { scope: './' })
+    .then(() => URL.revokeObjectURL(swUrl))
+    .catch(() => URL.revokeObjectURL(swUrl));
+})();
 </script>
 </body>
 </html>
