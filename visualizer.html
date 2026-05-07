@@ -322,6 +322,16 @@ html, body {
         </div>
       </div>
 
+      <!-- Visualizer Mode section -->
+      <div>
+        <div class="section-label">Visualizer Mode</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn active" id="btn-mode-bars">Bars</button>
+          <button class="btn" id="btn-mode-waveform">Waveform</button>
+          <button class="btn" id="btn-mode-spectrogram">Spectrogram</button>
+        </div>
+      </div>
+
       <div style="flex:1"></div>
     </div><!-- /sidebar -->
 
@@ -513,60 +523,220 @@ resizeCanvas();
 
 
 /* ═══════════════════════════════════════════════════════════════
-   RENDER STUB
-   Replace the body of this function to add visualizations.
+   THEME
+═══════════════════════════════════════════════════════════════ */
+const THEME = {
+  accent:      '#1a3888',   // bars gradient bottom
+  highlight:   '#40d8ff',   // bars gradient top
+  waveRGB:     [80, 148, 232],  // waveform line color as [r,g,b]
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   VISUALIZER STATE  (all typed arrays allocated once)
+═══════════════════════════════════════════════════════════════ */
+let currentMode = 'bars';
+
+// ── BARS ──────────────────────────────────────────────────────
+const BAR_COUNT  = 128;
+const barHeights = new Float32Array(BAR_COUNT);  // smoothed 0-1
+let   barsGrad   = null;   // cached gradient; invalidated on resize
+let   barsGradH  = -1;
+
+// ── WAVEFORM ──────────────────────────────────────────────────
+let wavePhase = 0;
+let waveYBuf  = new Float32Array(4096);  // precomputed y values; grown on resize
+
+// ── SPECTROGRAM ───────────────────────────────────────────────
+let spectroCanvas    = null;
+let spectroCtx2      = null;
+let spectroStripData = null;   // ImageData(2, H) — reused every frame
+let spectroSW        = 0;
+let spectroSH        = 0;
+
+// Heatmap lookup tables: black → purple → red → yellow → white
+const heatR = new Uint8Array(256);
+const heatG = new Uint8Array(256);
+const heatB = new Uint8Array(256);
+(function buildHeat() {
+  // [value, r, g, b] stops
+  const stops = [
+    [0,   0,   0,   0  ],
+    [80,  80,  0,   110 ],
+    [150, 200, 0,   30  ],
+    [210, 255, 160, 0   ],
+    [255, 255, 255, 255 ],
+  ];
+  for (let v = 0; v < 256; v++) {
+    let lo = stops[0], hi = stops[1];
+    for (let s = 1; s < stops.length - 1; s++) {
+      if (v >= stops[s][0]) { lo = stops[s]; hi = stops[s + 1]; }
+    }
+    const t = lo[0] === hi[0] ? 1 : (v - lo[0]) / (hi[0] - lo[0]);
+    heatR[v] = Math.round(lo[1] + (hi[1] - lo[1]) * t);
+    heatG[v] = Math.round(lo[2] + (hi[2] - lo[2]) * t);
+    heatB[v] = Math.round(lo[3] + (hi[3] - lo[3]) * t);
+  }
+})();
+
+function ensureSpectrogram(W, H) {
+  if (spectroCanvas && spectroSW === W && spectroSH === H) return;
+  spectroCanvas = document.createElement('canvas');
+  spectroCanvas.width  = W;
+  spectroCanvas.height = H;
+  spectroCtx2 = spectroCanvas.getContext('2d');
+  spectroCtx2.fillStyle = '#000';
+  spectroCtx2.fillRect(0, 0, W, H);
+  spectroStripData = spectroCtx2.createImageData(2, H);
+  spectroSW = W;
+  spectroSH = H;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODE RENDERERS
+═══════════════════════════════════════════════════════════════ */
+function renderBars(freq, W, H) {
+  g.fillStyle = '#0f0f11';
+  g.fillRect(0, 0, W, H);
+  if (!freq) return;
+
+  if (barsGradH !== H) {
+    barsGrad  = g.createLinearGradient(0, H, 0, 0);
+    barsGrad.addColorStop(0, THEME.accent);
+    barsGrad.addColorStop(1, THEME.highlight);
+    barsGradH = H;
+  }
+
+  const binCount = freq.length;
+  const barW     = W / BAR_COUNT;
+  const drawW    = Math.max(1, barW - 1);
+  const centerY  = H * 0.5;
+  const maxBarH  = centerY * 0.95;
+
+  g.fillStyle = barsGrad;
+
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const lo = Math.floor(i       * binCount / BAR_COUNT);
+    const hi = Math.floor((i + 1) * binCount / BAR_COUNT);
+    let sum = 0;
+    for (let b = lo; b < hi; b++) sum += freq[b];
+    const newVal = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
+
+    barHeights[i] += (newVal - barHeights[i]) * 0.15;
+    const bh = barHeights[i] * maxBarH;
+    const x  = i * barW;
+
+    g.fillRect(x, centerY - bh, drawW, bh);  // upward arm
+    g.fillRect(x, centerY,      drawW, bh);  // downward mirror
+  }
+}
+
+function renderWaveform(time, W, H) {
+  g.fillStyle = '#0f0f11';
+  g.fillRect(0, 0, W, H);
+  if (!time) return;
+
+  wavePhase = (wavePhase + 0.002) % 1;
+  const tLen    = time.length;
+  const phShift = Math.floor(wavePhase * tLen);
+  const centerY = H * 0.5;
+  const amp     = H * 0.42;
+  const [wr, wg, wb] = THEME.waveRGB;
+
+  // Precompute y values (no per-frame allocation — reuse waveYBuf)
+  if (W > waveYBuf.length) waveYBuf = new Float32Array(W * 2);
+  for (let i = 0; i < W; i++) {
+    const idx = (phShift + Math.floor(i * tLen / W)) % tLen;
+    waveYBuf[i] = centerY + ((time[idx] - 128) / 128) * amp;
+  }
+
+  // Fill: area between waveform and center line
+  g.beginPath();
+  g.moveTo(0, waveYBuf[0]);
+  for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
+  g.lineTo(W, centerY);
+  g.lineTo(0, centerY);
+  g.closePath();
+  g.fillStyle = `rgba(${wr},${wg},${wb},0.08)`;
+  g.fill();
+
+  // Glow line: 6px wide (2px + 4px wider), 0.15 opacity
+  g.beginPath();
+  g.moveTo(0, waveYBuf[0]);
+  for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
+  g.strokeStyle = `rgba(${wr},${wg},${wb},0.15)`;
+  g.lineWidth   = 6;
+  g.stroke();
+
+  // Main line: 2px
+  g.beginPath();
+  g.moveTo(0, waveYBuf[0]);
+  for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
+  g.strokeStyle = `rgb(${wr},${wg},${wb})`;
+  g.lineWidth   = 2;
+  g.stroke();
+}
+
+function renderSpectrogram(freq, W, H) {
+  ensureSpectrogram(W, H);
+
+  if (freq) {
+    const binCount = freq.length;
+    const sh = spectroSH;
+    const sd = spectroStripData;
+
+    // Build heatmap strip (y=0 = high freq, y=sh-1 = low freq)
+    for (let y = 0; y < sh; y++) {
+      const binIdx = Math.min(binCount - 1, Math.floor((1 - y / sh) * binCount));
+      const val = freq[binIdx];
+      const p   = y * 8;  // 2 pixels × 4 channels each
+      sd.data[p]     = heatR[val]; sd.data[p + 1] = heatG[val];
+      sd.data[p + 2] = heatB[val]; sd.data[p + 3] = 255;
+      sd.data[p + 4] = heatR[val]; sd.data[p + 5] = heatG[val];
+      sd.data[p + 6] = heatB[val]; sd.data[p + 7] = 255;
+    }
+
+    // Shift buffer left by 2px, then stamp new strip on the right
+    spectroCtx2.drawImage(spectroCanvas, -2, 0);
+    spectroCtx2.putImageData(sd, spectroSW - 2, 0);
+  }
+
+  g.drawImage(spectroCanvas, 0, 0, W, H);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODE SWITCH
+═══════════════════════════════════════════════════════════════ */
+function switchMode(mode) {
+  currentMode = mode;
+
+  // Clear main canvas
+  g.fillStyle = '#0f0f11';
+  g.fillRect(0, 0, logicalW, logicalH);
+
+  // Clear spectrogram buffer so old data does not persist
+  if (mode === 'spectrogram' && spectroCanvas) {
+    spectroCtx2.fillStyle = '#000';
+    spectroCtx2.fillRect(0, 0, spectroSW, spectroSH);
+  }
+
+  document.getElementById('btn-mode-bars').classList.toggle('active',        mode === 'bars');
+  document.getElementById('btn-mode-waveform').classList.toggle('active',    mode === 'waveform');
+  document.getElementById('btn-mode-spectrogram').classList.toggle('active', mode === 'spectrogram');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER  (dispatches to active mode renderer)
    freq  → Uint8Array(4096), byte frequency data 0-255
    time  → Uint8Array(8192), byte time-domain data 0-255
 ═══════════════════════════════════════════════════════════════ */
 function render(freq, time) {
   const W = logicalW;
   const H = logicalH;
-
-  // Background
-  g.fillStyle = '#0f0f11';
-  g.fillRect(0, 0, W, H);
-
-  if (!freq || !time) return;
-
-  // ── Frequency bars ────────────────────────────────────────────
-  const binCount = freq.length;
-  // Use the lower half of bins (more musically relevant)
-  const useBins = Math.floor(binCount * 0.6);
-  const barCount = Math.min(useBins, 320);
-  const barW = W / barCount;
-  const gap  = barW > 3 ? 1 : 0;
-
-  for (let i = 0; i < barCount; i++) {
-    // Average a small range of bins for smoother bars when barCount < binCount
-    const lo = Math.floor(i * useBins / barCount);
-    const hi = Math.floor((i + 1) * useBins / barCount);
-    let sum = 0;
-    for (let b = lo; b <= hi && b < binCount; b++) sum += freq[b];
-    const v = sum / ((hi - lo + 1) * 255);
-
-    const barH  = v * H * 0.82;
-    const x     = i * barW;
-    const y     = H - barH;
-
-    // Gradient colouring: cool blue at low freq → warm red at high
-    const hue  = 220 - i / barCount * 200;
-    const lit  = 28 + v * 38;
-    const sat  = 55 + v * 30;
-    g.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
-    g.fillRect(x, y, Math.max(1, barW - gap), barH);
+  switch (currentMode) {
+    case 'bars':        renderBars(freq, W, H);        break;
+    case 'waveform':    renderWaveform(time, W, H);    break;
+    case 'spectrogram': renderSpectrogram(freq, W, H); break;
   }
-
-  // ── Waveform overlay ──────────────────────────────────────────
-  const tLen = time.length;
-  g.beginPath();
-  g.strokeStyle = 'rgba(200,200,220,0.18)';
-  g.lineWidth = 1.5;
-  for (let i = 0; i < tLen; i++) {
-    const x = (i / tLen) * W;
-    const y = ((time[i] - 128) / 128) * (H * 0.18) + H * 0.5;
-    i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-  }
-  g.stroke();
 }
 
 
@@ -741,6 +911,17 @@ async function resumeOnGesture() {
 
 document.addEventListener('touchstart', resumeOnGesture, { passive: true, once: false });
 document.addEventListener('click',      resumeOnGesture, { passive: true, once: false });
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODE BUTTON BINDINGS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('btn-mode-bars').addEventListener('click',
+  () => switchMode('bars'));
+document.getElementById('btn-mode-waveform').addEventListener('click',
+  () => switchMode('waveform'));
+document.getElementById('btn-mode-spectrogram').addEventListener('click',
+  () => switchMode('spectrogram'));
 </script>
 </body>
 </html>
