@@ -1336,6 +1336,14 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <input type="range" id="ctrl-motion" min="0" max="1" step="0.01" value="0.5">
           </div>
 
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Trail</span>
+              <span class="ctrl-value" id="val-trail">0.00</span>
+            </div>
+            <input type="range" id="ctrl-trail" min="0" max="0.95" step="0.01" value="0">
+          </div>
+
           <div class="toggle-row">
             <span class="ctrl-label">Mirror (Bars)</span>
             <button class="toggle-btn" id="ctrl-mirror" aria-label="Toggle mirror"></button>
@@ -1616,6 +1624,7 @@ const params = {
   smoothing:    0.80,
   gain:         1.0,
   motionAmount: 0.5,
+  trailAlpha:   0.0,
   mirror:       false,
   fill:         true,
   barCount:     128,
@@ -2564,11 +2573,19 @@ function render(freq, time) {
   const W = logicalW;
   const H = logicalH;
 
-  /* 1. Clear canvas with theme background color */
+  /* 1. Clear canvas — solid fill or fading trail */
   g.globalCompositeOperation = 'source-over';
-  g.globalAlpha = 1;
-  g.fillStyle   = THEME.bgColor;
-  g.fillRect(0, 0, W, H);
+  if (params.trailAlpha > 0) {
+    const [br, bg, bb] = hexToRgb(THEME.bgColor);
+    g.globalAlpha = 1 - params.trailAlpha;
+    g.fillStyle   = `rgb(${br},${bg},${bb})`;
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 1;
+  } else {
+    g.globalAlpha = 1;
+    g.fillStyle   = THEME.bgColor;
+    g.fillRect(0, 0, W, H);
+  }
 
   /* 2. Background image (if loaded) */
   drawBackground(W, H);
@@ -2723,6 +2740,8 @@ function syncControlsToParams() {
   document.getElementById('val-gain').textContent = params.gain.toFixed(1);
   document.getElementById('ctrl-motion').value = params.motionAmount;
   document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
+  document.getElementById('ctrl-trail').value = params.trailAlpha;
+  document.getElementById('val-trail').textContent = params.trailAlpha.toFixed(2);
   document.getElementById('ctrl-mirror').classList.toggle('active', params.mirror);
   document.getElementById('ctrl-fill').classList.toggle('active', params.fill);
   document.getElementById('ctrl-barcount').value = params.barCount;
@@ -2757,6 +2776,7 @@ function applyPreset(preset, writeToHash = true) {
   AudioEngine.setSmoothing(preset.smoothing);
   AudioEngine.setGain(preset.gain);
   params.motionAmount = preset.motionAmount;
+  params.trailAlpha   = preset.trailAlpha   ?? 0.0;
   params.mirror       = preset.mirror;
   params.fill         = preset.fill;
   params.barCount     = preset.barCount;
@@ -2882,6 +2902,7 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     smoothing:    params.smoothing,
     gain:         params.gain,
     motionAmount: params.motionAmount,
+    trailAlpha:   params.trailAlpha,
     mirror:       params.mirror,
     fill:         params.fill,
     barCount:     params.barCount,
@@ -3495,6 +3516,12 @@ document.getElementById('ctrl-gain').addEventListener('input', e => {
 document.getElementById('ctrl-motion').addEventListener('input', e => {
   params.motionAmount = parseFloat(e.target.value);
   document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
+  markModified();
+});
+
+document.getElementById('ctrl-trail').addEventListener('input', e => {
+  params.trailAlpha = parseFloat(e.target.value);
+  document.getElementById('val-trail').textContent = params.trailAlpha.toFixed(2);
   markModified();
 });
 
