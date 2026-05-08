@@ -980,6 +980,107 @@ input[type="range"]::-moz-range-thumb {
   flex-shrink: 0;
   color: #555568;
 }
+
+/* ── Text overlay UI ── */
+.text-input {
+  width: 100%;
+  background: #202028;
+  border: 1px solid #28282f;
+  border-radius: 5px;
+  color: #aaaab8;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.text-input:focus {
+  border-color: #3878d0;
+}
+
+.text-input::placeholder {
+  color: #44444e;
+}
+
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.style-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 4px;
+  border: 1px solid #26262d;
+  border-radius: 6px;
+  background: #181820;
+  cursor: pointer;
+  font-size: 8.5px;
+  color: #666678;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: 1.1;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+}
+
+.style-btn:hover {
+  background: #20202e;
+  border-color: #38384a;
+  color: #c8c8d8;
+}
+
+.style-btn.active {
+  border-color: #2458a0;
+  background: #111828;
+  color: var(--accent-color);
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 26px;
+  padding: 2px;
+  border: 1px solid #38383f;
+  border-radius: 4px;
+  background: #202028;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
+
+.overlay-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.overlay-color-opacity {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preview-note {
+  font-size: 10px;
+  color: #38383f;
+  text-align: center;
+  font-style: italic;
+}
 </style>
 </head>
 <body>
@@ -1228,6 +1329,72 @@ input[type="range"]::-moz-range-thumb {
         <div class="swatch-grid" id="swatch-grid"></div>
       </div>
 
+      <!-- Text Overlay section (collapsible) -->
+      <div class="ctrl-section collapsed" id="section-overlay">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Text Overlay</div>
+          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ctrl-section-body">
+
+          <div class="toggle-row">
+            <span class="ctrl-label">Enable</span>
+            <button class="toggle-btn" id="ctrl-overlay-enabled" aria-label="Toggle text overlay"></button>
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label">Text</span>
+            <input type="text" class="text-input" id="ctrl-overlay-text"
+                   maxlength="80" placeholder="Enter overlay text…">
+          </div>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Font Size</span>
+              <span class="ctrl-value" id="val-overlay-fontsize">48px</span>
+            </div>
+            <input type="range" id="ctrl-overlay-fontsize" min="24" max="120" step="1" value="48">
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Font</span>
+            <select class="ctrl-select" id="ctrl-overlay-fontfamily">
+              <option value="sans-serif">Sans-serif</option>
+              <option value="serif">Serif</option>
+              <option value="monospace">Monospace</option>
+              <option value="Impact">Impact</option>
+              <option value="cursive">Cursive</option>
+            </select>
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Color &amp; Opacity</span>
+            <div class="overlay-color-row">
+              <input type="color" id="ctrl-overlay-color" value="#ffffff" title="Text color">
+              <div class="overlay-color-opacity">
+                <div class="ctrl-row-header">
+                  <span class="ctrl-label">Opacity</span>
+                  <span class="ctrl-value" id="val-overlay-opacity">1.0</span>
+                </div>
+                <input type="range" id="ctrl-overlay-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+              </div>
+            </div>
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Style</span>
+            <div class="style-grid" id="overlay-style-grid"></div>
+          </div>
+
+          <div class="preview-note">Text renders live on canvas</div>
+
+        </div>
+      </div>
+
       <div style="flex:1"></div>
     </div><!-- /sidebar -->
 
@@ -1330,6 +1497,14 @@ const params = {
   barCount:     128,
   theme:        0,
   themeName:    'Midnight',
+  /* text overlay */
+  overlayEnabled:    false,
+  overlayText:       '',
+  overlayFontSize:   48,
+  overlayFontFamily: 'sans-serif',
+  overlayColor:      '#ffffff',
+  overlayOpacity:    1.0,
+  overlayStyle:      'scroll',
 };
 
 
@@ -1879,6 +2054,211 @@ function drawVignette(W, H) {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   TEXT OVERLAY
+═══════════════════════════════════════════════════════════════ */
+let textOverlayStartTime = performance.now();
+let overlaySpotCanvas = null, overlaySpotCtx = null, overlaySpotW = -1, overlaySpotH = -1;
+
+function resetOverlayTimer() {
+  textOverlayStartTime = performance.now();
+}
+
+function overlaySeededRng(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+function overlaySetBase(ctx, cr, cg, cb) {
+  ctx.shadowBlur  = 8;
+  ctx.shadowColor = `rgba(${cr},${cg},${cb},0.5)`;
+}
+
+function drawScrollOverlay(ctx, text, t, W, H, cr, cg, cb) {
+  ctx.font         = `${params.overlayFontSize}px ${params.overlayFontFamily}`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'left';
+  ctx.fillStyle    = `rgba(${cr},${cg},${cb},${params.overlayOpacity})`;
+  const tw    = ctx.measureText(text).width;
+  const speed = 80 * (W / 800);
+  const cycle = tw + W;
+  const x     = W - ((t * speed) % cycle);
+  ctx.fillText(text, x, H / 2);
+}
+
+function drawFadeOverlay(ctx, text, t, W, H, cr, cg, cb) {
+  const sine    = (Math.sin(t * 0.8) + 1) / 2;
+  const opacity = Math.max(0.15, params.overlayOpacity * sine);
+  const scl     = 0.96 + sine * 0.08;
+  ctx.font         = `${params.overlayFontSize * scl}px ${params.overlayFontFamily}`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle    = `rgba(${cr},${cg},${cb},${opacity})`;
+  ctx.fillText(text, W / 2, H / 2);
+}
+
+function drawTypewriterOverlay(ctx, text, t, W, H, cr, cg, cb) {
+  const REVEAL = 3.0, HOLD1 = 2.0, WIPE = 1.5, HOLD2 = 1.0;
+  const cycle  = REVEAL + HOLD1 + WIPE + HOLD2;
+  const phase  = t % cycle;
+  const n      = text.length;
+  let charCount;
+  if      (phase < REVEAL)                 charCount = Math.floor((phase / REVEAL) * n);
+  else if (phase < REVEAL + HOLD1)         charCount = n;
+  else if (phase < REVEAL + HOLD1 + WIPE)  charCount = Math.floor(n * (1 - (phase - REVEAL - HOLD1) / WIPE));
+  else                                      charCount = 0;
+  if (charCount <= 0) return;
+  const visible = text.slice(0, charCount);
+  ctx.font         = `${params.overlayFontSize}px ${params.overlayFontFamily}`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'left';
+  ctx.fillStyle    = `rgba(${cr},${cg},${cb},${params.overlayOpacity})`;
+  const fullW = ctx.measureText(text).width;
+  ctx.fillText(visible, W / 2 - fullW / 2, H / 2);
+}
+
+function drawGlitchOverlay(ctx, text, t, W, H, cr, cg, cb) {
+  const segId      = Math.floor(t / 0.4);
+  const rng        = overlaySeededRng(segId * 137 + 42);
+  const numEffects = Math.floor(rng() * 4);
+
+  ctx.font         = `${params.overlayFontSize}px ${params.overlayFontFamily}`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  /* Effect 1 — contrasting color duplicate with x/y offset */
+  if (numEffects >= 1) {
+    const ox = (rng() - 0.5) * 12;
+    const oy = (rng() - 0.5) * 8;
+    ctx.fillStyle = rng() > 0.5 ? 'rgba(255,0,0,0.45)' : 'rgba(0,255,238,0.45)';
+    ctx.fillText(text, W / 2 + ox, H / 2 + oy);
+  }
+
+  /* Effect 3 — character substitution (evaluated before effect 2 clip) */
+  let displayText = text;
+  if (numEffects >= 3) {
+    const chars     = text.split('');
+    const numSub    = 1 + Math.floor(rng() * 2);
+    const glitchSet = '!@#$%^&*<>?/\\|{}[]~';
+    for (let s = 0; s < numSub; s++) {
+      const idx  = Math.floor(rng() * chars.length);
+      chars[idx] = glitchSet[Math.floor(rng() * glitchSet.length)];
+    }
+    displayText = chars.join('');
+  }
+
+  /* Effect 2 — horizontal slice clipped and shifted */
+  if (numEffects >= 2) {
+    const sliceY  = H * (0.3 + rng() * 0.4);
+    const sliceH2 = params.overlayFontSize * (0.2 + rng() * 0.3);
+    const sliceX  = (rng() - 0.5) * 24;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, sliceY - sliceH2 / 2, W, sliceH2);
+    ctx.clip();
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${params.overlayOpacity})`;
+    ctx.fillText(displayText, W / 2 + sliceX, H / 2);
+    ctx.restore();
+  }
+
+  /* Main draw */
+  ctx.fillStyle = `rgba(${cr},${cg},${cb},${params.overlayOpacity})`;
+  ctx.fillText(displayText, W / 2, H / 2);
+}
+
+function drawWaveOverlay(ctx, text, t, W, H, cr, cg, cb) {
+  ctx.font         = `${params.overlayFontSize}px ${params.overlayFontFamily}`;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle    = `rgba(${cr},${cg},${cb},${params.overlayOpacity})`;
+  const amplitude = params.overlayFontSize * 0.3;
+  const advances  = [];
+  let totalWidth  = 0;
+  for (let i = 0; i < text.length; i++) {
+    const w = ctx.measureText(text[i]).width;
+    advances.push(w);
+    totalWidth += w;
+  }
+  let x = W / 2 - totalWidth / 2;
+  for (let i = 0; i < text.length; i++) {
+    const y = H / 2 + Math.sin(t * 2 + i * 0.4) * amplitude;
+    ctx.fillText(text[i], x, y);
+    x += advances[i];
+  }
+}
+
+function drawSpotlightOverlay(ctx, text, t, W, H, cr, cg, cb) {
+  const lx = W / 2 + W * 0.3 * Math.sin(t * 0.5);
+  const ly = H / 2 + H * 0.25 * Math.sin(t * 0.3);
+
+  ctx.font         = `${params.overlayFontSize}px ${params.overlayFontFamily}`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  /* Unlit base at 0.08 opacity */
+  ctx.globalAlpha = 0.08 * params.overlayOpacity;
+  ctx.fillStyle   = `rgb(${cr},${cg},${cb})`;
+  ctx.fillText(text, W / 2, H / 2);
+  ctx.globalAlpha = 1;
+
+  /* Lit portion via offscreen canvas */
+  const iW = Math.ceil(W), iH = Math.ceil(H);
+  if (overlaySpotW !== iW || overlaySpotH !== iH) {
+    overlaySpotCanvas        = document.createElement('canvas');
+    overlaySpotCanvas.width  = iW;
+    overlaySpotCanvas.height = iH;
+    overlaySpotCtx           = overlaySpotCanvas.getContext('2d');
+    overlaySpotW = iW; overlaySpotH = iH;
+  }
+  const sc = overlaySpotCtx;
+  sc.clearRect(0, 0, iW, iH);
+  sc.font         = `${params.overlayFontSize}px ${params.overlayFontFamily}`;
+  sc.textAlign    = 'center';
+  sc.textBaseline = 'middle';
+  sc.shadowBlur   = 8;
+  sc.shadowColor  = `rgba(${cr},${cg},${cb},0.5)`;
+  sc.fillStyle    = `rgba(${cr},${cg},${cb},${params.overlayOpacity})`;
+  sc.fillText(text, W / 2, H / 2);
+
+  /* Spotlight radial gradient mask */
+  const spotR = Math.max(W, H) * 0.28;
+  const grad  = sc.createRadialGradient(lx, ly, 0, lx, ly, spotR);
+  grad.addColorStop(0,    'rgba(255,255,255,1)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.7)');
+  grad.addColorStop(1,    'rgba(255,255,255,0)');
+  sc.globalCompositeOperation = 'destination-in';
+  sc.fillStyle = grad;
+  sc.fillRect(0, 0, iW, iH);
+  sc.globalCompositeOperation = 'source-over';
+
+  ctx.drawImage(overlaySpotCanvas, 0, 0);
+}
+
+function drawTextOverlay() {
+  if (!params.overlayEnabled || !params.overlayText.trim()) return;
+  const t            = (performance.now() - textOverlayStartTime) / 1000;
+  const W            = logicalW, H = logicalH;
+  const text         = params.overlayText;
+  const [cr, cg, cb] = hexToRgb(params.overlayColor);
+
+  g.save();
+  overlaySetBase(g, cr, cg, cb);
+
+  switch (params.overlayStyle) {
+    case 'scroll':     drawScrollOverlay(g, text, t, W, H, cr, cg, cb);     break;
+    case 'fade':       drawFadeOverlay(g, text, t, W, H, cr, cg, cb);       break;
+    case 'typewriter': drawTypewriterOverlay(g, text, t, W, H, cr, cg, cb); break;
+    case 'glitch':     drawGlitchOverlay(g, text, t, W, H, cr, cg, cb);     break;
+    case 'wave':       drawWaveOverlay(g, text, t, W, H, cr, cg, cb);       break;
+    case 'spotlight':  drawSpotlightOverlay(g, text, t, W, H, cr, cg, cb);  break;
+  }
+
+  g.restore();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    MODE TRANSITION
 ═══════════════════════════════════════════════════════════════ */
 let modeTransition = null; // { target, startTime }
@@ -1930,6 +2310,7 @@ function render(freq, time) {
     case 'spectrogram': renderSpectrogram(freq, W, H); break;
   }
 
+  drawTextOverlay();
   drawVignette(W, H);
 
   /* Mode transition fade-to-black overlay */
@@ -2068,6 +2449,19 @@ function syncControlsToParams() {
   document.getElementById('ctrl-fill').classList.toggle('active', params.fill);
   document.getElementById('ctrl-barcount').value = params.barCount;
   document.getElementById('val-barcount').textContent = params.barCount;
+
+  /* overlay */
+  document.getElementById('ctrl-overlay-enabled').classList.toggle('active', params.overlayEnabled);
+  document.getElementById('ctrl-overlay-text').value = params.overlayText;
+  document.getElementById('ctrl-overlay-fontsize').value = params.overlayFontSize;
+  document.getElementById('val-overlay-fontsize').textContent = params.overlayFontSize + 'px';
+  document.getElementById('ctrl-overlay-fontfamily').value = params.overlayFontFamily;
+  document.getElementById('ctrl-overlay-color').value = params.overlayColor;
+  document.getElementById('ctrl-overlay-opacity').value = params.overlayOpacity;
+  document.getElementById('val-overlay-opacity').textContent = params.overlayOpacity.toFixed(1);
+  document.querySelectorAll('.style-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.style === params.overlayStyle);
+  });
 }
 
 
@@ -2083,6 +2477,15 @@ function applyPreset(preset, writeToHash = true) {
   params.fill         = preset.fill;
   params.barCount     = preset.barCount;
   barHeights.fill(0);
+
+  params.overlayEnabled    = preset.overlayEnabled    ?? false;
+  params.overlayText       = preset.overlayText       ?? '';
+  params.overlayFontSize   = preset.overlayFontSize   ?? 48;
+  params.overlayFontFamily = preset.overlayFontFamily ?? 'sans-serif';
+  params.overlayColor      = preset.overlayColor      ?? '#ffffff';
+  params.overlayOpacity    = preset.overlayOpacity    ?? 1.0;
+  params.overlayStyle      = preset.overlayStyle      ?? 'scroll';
+  resetOverlayTimer();
 
   applyTheme(preset.theme);
   switchMode(preset.mode);
@@ -2169,16 +2572,23 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
 
   const preset = {
     version: 1, name,
-    mode:        currentMode,
-    fftSize:     params.fftSize,
-    smoothing:   params.smoothing,
-    gain:        params.gain,
-    motionAmount:params.motionAmount,
-    mirror:      params.mirror,
-    fill:        params.fill,
-    barCount:    params.barCount,
-    theme:       params.theme,
-    themeName:   params.themeName,
+    mode:         currentMode,
+    fftSize:      params.fftSize,
+    smoothing:    params.smoothing,
+    gain:         params.gain,
+    motionAmount: params.motionAmount,
+    mirror:       params.mirror,
+    fill:         params.fill,
+    barCount:     params.barCount,
+    theme:        params.theme,
+    themeName:    params.themeName,
+    overlayEnabled:    params.overlayEnabled,
+    overlayText:       params.overlayText,
+    overlayFontSize:   params.overlayFontSize,
+    overlayFontFamily: params.overlayFontFamily,
+    overlayColor:      params.overlayColor,
+    overlayOpacity:    params.overlayOpacity,
+    overlayStyle:      params.overlayStyle,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -2922,6 +3332,116 @@ canvas.addEventListener('touchend', e => {
   switchModeAnimated(next);
   markModified();
 }, { passive: true });
+
+
+/* ═══════════════════════════════════════════════════════════════
+   TEXT OVERLAY — style button grid + UI bindings
+═══════════════════════════════════════════════════════════════ */
+const OVERLAY_STYLE_DEFS = [
+  {
+    id: 'scroll',
+    label: 'Scroll',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="1" y1="6" x2="13" y2="6"/>
+      <polyline points="10,3 13,6 10,9"/>
+      <line x1="1" y1="2" x2="8" y2="2" opacity="0.4"/>
+      <line x1="1" y1="10" x2="8" y2="10" opacity="0.4"/>
+    </svg>`,
+  },
+  {
+    id: 'fade',
+    label: 'Fade',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12">
+      <circle cx="6" cy="6" r="4.5" fill="currentColor" opacity="0.9"/>
+      <circle cx="13.5" cy="6" r="3.5" fill="currentColor" opacity="0.3"/>
+    </svg>`,
+  },
+  {
+    id: 'typewriter',
+    label: 'Type',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <rect x="2" y="2" width="10" height="8" rx="1.5" opacity="0.5"/>
+      <line x1="15" y1="2" x2="15" y2="10"/>
+    </svg>`,
+  },
+  {
+    id: 'glitch',
+    label: 'Glitch',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <line x1="1" y1="4" x2="11" y2="4"/>
+      <line x1="4" y1="6" x2="15" y2="6"/>
+      <line x1="1" y1="8" x2="10" y2="8"/>
+      <line x1="12" y1="3" x2="17" y2="3" opacity="0.5" stroke="#ff4466"/>
+    </svg>`,
+  },
+  {
+    id: 'wave',
+    label: 'Wave',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1,6 C3,2 5,2 7,6 C9,10 11,10 13,6 C15,2 17,2 17,6"/>
+    </svg>`,
+  },
+  {
+    id: 'spotlight',
+    label: 'Spot',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12">
+      <circle cx="9" cy="6" r="5.5" fill="currentColor" opacity="0.12"/>
+      <circle cx="9" cy="6" r="3.5" fill="currentColor" opacity="0.4"/>
+      <circle cx="9" cy="6" r="1.5" fill="currentColor" opacity="0.95"/>
+    </svg>`,
+  },
+];
+
+(function initOverlayStyleGrid() {
+  const grid = document.getElementById('overlay-style-grid');
+  OVERLAY_STYLE_DEFS.forEach(def => {
+    const btn = document.createElement('button');
+    btn.className       = 'style-btn' + (def.id === params.overlayStyle ? ' active' : '');
+    btn.dataset.style   = def.id;
+    btn.innerHTML       = def.icon + `<span>${def.label}</span>`;
+    btn.addEventListener('click', () => {
+      params.overlayStyle = def.id;
+      resetOverlayTimer();
+      document.querySelectorAll('.style-btn').forEach(b => b.classList.toggle('active', b.dataset.style === def.id));
+      markModified();
+    });
+    grid.appendChild(btn);
+  });
+})();
+
+document.getElementById('ctrl-overlay-enabled').addEventListener('click', e => {
+  params.overlayEnabled = !params.overlayEnabled;
+  e.currentTarget.classList.toggle('active', params.overlayEnabled);
+  markModified();
+});
+
+document.getElementById('ctrl-overlay-text').addEventListener('input', e => {
+  params.overlayText = e.target.value;
+  resetOverlayTimer();
+  markModified();
+});
+
+document.getElementById('ctrl-overlay-fontsize').addEventListener('input', e => {
+  params.overlayFontSize = parseInt(e.target.value, 10);
+  document.getElementById('val-overlay-fontsize').textContent = params.overlayFontSize + 'px';
+  markModified();
+});
+
+document.getElementById('ctrl-overlay-fontfamily').addEventListener('change', e => {
+  params.overlayFontFamily = e.target.value;
+  markModified();
+});
+
+document.getElementById('ctrl-overlay-color').addEventListener('input', e => {
+  params.overlayColor = e.target.value;
+  markModified();
+});
+
+document.getElementById('ctrl-overlay-opacity').addEventListener('input', e => {
+  params.overlayOpacity = parseFloat(e.target.value);
+  document.getElementById('val-overlay-opacity').textContent = params.overlayOpacity.toFixed(1);
+  markModified();
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
