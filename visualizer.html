@@ -1293,6 +1293,7 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           <button class="btn" id="btn-mode-spectrogram">Spectrogram</button>
           <button class="btn" id="btn-mode-radial">Radial</button>
           <button class="btn" id="btn-mode-particles">Particles</button>
+          <button class="btn" id="btn-mode-rings">Rings</button>
         </div>
       </div>
 
@@ -2196,7 +2197,7 @@ let currentMode = 'bars';
 /* Beat flash — timestamp of the last detected beat; -Infinity = no flash active */
 let beatFlashStart = -Infinity;
 
-const MODES = ['bars', 'waveform', 'spectrogram', 'radial', 'particles'];
+const MODES = ['bars', 'waveform', 'spectrogram', 'radial', 'particles', 'rings'];
 
 const barHeights = new Float32Array(256);
 
@@ -2214,6 +2215,18 @@ let radialBeatTime = -Infinity;
 
 /* Particle pool — reused across frames */
 const particlePool = [];
+
+/* Rings state */
+const RING_BANDS = [
+  { lo: 0,   hi: 3   },  // sub-bass
+  { lo: 4,   hi: 10  },  // bass
+  { lo: 11,  hi: 25  },  // low-mid
+  { lo: 26,  hi: 60  },  // mid
+  { lo: 61,  hi: 120 },  // high-mid
+  { lo: 121, hi: -1  },  // treble (hi = -1 → end of useful range)
+];
+const ringValues  = new Float32Array(6);   // smoothed band values 0–1
+const ringRipples = [];                    // { r, alpha, startTime }
 
 const heatR = new Uint8Array(256);
 const heatG = new Uint8Array(256);
@@ -2563,6 +2576,89 @@ function renderParticles(time, W, H, vizFillAlpha) {
     g.arc(p.x, p.y, drawSize, 0, Math.PI * 2);
     g.fillStyle = `hsla(${p.hue},100%,65%,${Math.sqrt(p.life) * vizFillAlpha})`;
     g.fill();
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RINGS RENDERER
+═══════════════════════════════════════════════════════════════ */
+function renderRings(freq, W, H, vizFillAlpha = 1) {
+  const cx     = W / 2;
+  const cy     = H / 2;
+  const minDim = Math.min(W, H);
+  const innerR = minDim * 0.08;
+  const outerR = minDim * 0.46;
+  const nBands = RING_BANDS.length;
+  const smoothK = 0.08 + 0.14 * params.motionAmount;
+
+  /* Update smoothed band values */
+  for (let b = 0; b < nBands; b++) {
+    let rawVal = 0;
+    if (freq) {
+      const lo  = RING_BANDS[b].lo;
+      const hi  = RING_BANDS[b].hi === -1 ? Math.min(freq.length - 1, 200) : RING_BANDS[b].hi;
+      const end = Math.min(hi + 1, freq.length);
+      let sum   = 0;
+      for (let i = lo; i < end; i++) sum += freq[i];
+      rawVal = (end > lo) ? sum / ((end - lo) * 255) : 0;
+    }
+    ringValues[b] += (rawVal - ringValues[b]) * smoothK;
+  }
+
+  /* Emit ripple on beat */
+  if (BeatDetector.isBeat()) {
+    ringRipples.push({ r: innerR, startTime: performance.now() });
+  }
+
+  /* Subtle aura: filled circle at outerR with theme accent at 3% opacity */
+  const [ar, ag2, ab] = hexToRgb(THEME.accent);
+  g.beginPath();
+  g.arc(cx, cy, outerR, 0, Math.PI * 2);
+  g.fillStyle = `rgba(${ar},${ag2},${ab},0.03)`;
+  g.fill();
+
+  /* Ghost rings — thin, low opacity to show structure during silence */
+  g.globalAlpha = 0.12 * vizFillAlpha;
+  for (let b = 0; b < nBands; b++) {
+    const r = innerR + (outerR - innerR) * (b / (nBands - 1));
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.strokeStyle = `rgb(${ar},${ag2},${ab})`;
+    g.lineWidth   = 0.5;
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  /* Active rings — width and color driven by band energy */
+  for (let b = 0; b < nBands; b++) {
+    const v   = ringValues[b];
+    const r   = innerR + (outerR - innerR) * (b / (nBands - 1));
+    const cv  = Math.min(255, Math.floor(v * 255));
+    const lw  = 2 + v * 14;
+
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.strokeStyle = `rgba(${heatR[cv]},${heatG[cv]},${heatB[cv]},${vizFillAlpha})`;
+    g.lineWidth   = lw;
+    g.stroke();
+  }
+
+  /* Ripples */
+  const RIPPLE_DURATION = 600;
+  const now = performance.now();
+  for (let i = ringRipples.length - 1; i >= 0; i--) {
+    const rip     = ringRipples[i];
+    const elapsed = now - rip.startTime;
+    if (elapsed > RIPPLE_DURATION) { ringRipples.splice(i, 1); continue; }
+    const progress = elapsed / RIPPLE_DURATION;
+    const rr       = innerR + (outerR - innerR) * progress;
+    const alpha    = (1 - progress) * 0.6 * vizFillAlpha;
+    g.beginPath();
+    g.arc(cx, cy, rr, 0, Math.PI * 2);
+    g.strokeStyle = `rgba(${ar},${ag2},${ab},${alpha})`;
+    g.lineWidth   = 1;
+    g.stroke();
   }
 }
 
@@ -3006,6 +3102,7 @@ function switchMode(mode) {
   document.getElementById('btn-mode-spectrogram').classList.toggle('active', mode === 'spectrogram');
   document.getElementById('btn-mode-radial').classList.toggle('active',      mode === 'radial');
   document.getElementById('btn-mode-particles').classList.toggle('active',   mode === 'particles');
+  document.getElementById('btn-mode-rings').classList.toggle('active',       mode === 'rings');
   document.getElementById('row-density').style.display = mode === 'particles' ? '' : 'none';
 }
 
@@ -3057,6 +3154,7 @@ function render(freq, time) {
     case 'spectrogram': renderSpectrogram(freq, W, H, vizFillAlpha);    break;
     case 'radial':      renderRadial(freq, W, H, vizFillAlpha);         break;
     case 'particles':   renderParticles(time, W, H, vizFillAlpha);      break;
+    case 'rings':       renderRings(freq, W, H, vizFillAlpha);          break;
   }
 
   /* 5. Vignette */
@@ -3994,6 +4092,10 @@ document.getElementById('btn-mode-radial').addEventListener('click', () => {
 });
 document.getElementById('btn-mode-particles').addEventListener('click', () => {
   switchModeAnimated('particles');
+  markModified();
+});
+document.getElementById('btn-mode-rings').addEventListener('click', () => {
+  switchModeAnimated('rings');
   markModified();
 });
 
