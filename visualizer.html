@@ -1292,6 +1292,7 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           <button class="btn" id="btn-mode-waveform">Waveform</button>
           <button class="btn" id="btn-mode-spectrogram">Spectrogram</button>
           <button class="btn" id="btn-mode-radial">Radial</button>
+          <button class="btn" id="btn-mode-particles">Particles</button>
         </div>
       </div>
 
@@ -1383,6 +1384,14 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
               <span class="ctrl-value" id="val-barcount">128</span>
             </div>
             <input type="range" id="ctrl-barcount" min="32" max="256" step="4" value="128">
+          </div>
+
+          <div class="ctrl-row" id="row-density" style="display:none">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Density</span>
+              <span class="ctrl-value" id="val-density">200</span>
+            </div>
+            <input type="range" id="ctrl-density" min="50" max="400" step="10" value="200">
           </div>
 
           <div class="ctrl-row">
@@ -1707,6 +1716,8 @@ const params = {
   bgGradient: false,
   /* bloom/glow */
   bloomIntensity: 0,
+  /* particles */
+  particleDensity: 200,
 };
 
 
@@ -1736,6 +1747,19 @@ function hexToRgb(hex) {
     parseInt(hex.slice(3, 5), 16),
     parseInt(hex.slice(5, 7), 16),
   ];
+}
+
+function hexToHue(hex) {
+  const [rr, gg, bb] = hexToRgb(hex).map(v => v / 255);
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d   = max - min;
+  if (d === 0) return 0;
+  let h;
+  if (max === rr)      h = ((gg - bb) / d + 6) % 6;
+  else if (max === gg) h = (bb - rr) / d + 2;
+  else                 h = (rr - gg) / d + 4;
+  return h * 60;
 }
 
 
@@ -2172,7 +2196,7 @@ let currentMode = 'bars';
 /* Beat flash — timestamp of the last detected beat; -Infinity = no flash active */
 let beatFlashStart = -Infinity;
 
-const MODES = ['bars', 'waveform', 'spectrogram', 'radial'];
+const MODES = ['bars', 'waveform', 'spectrogram', 'radial', 'particles'];
 
 const barHeights = new Float32Array(256);
 
@@ -2187,6 +2211,9 @@ let spectroSH        = 0;
 
 let radialAngle    = 0;
 let radialBeatTime = -Infinity;
+
+/* Particle pool — reused across frames */
+const particlePool = [];
 
 const heatR = new Uint8Array(256);
 const heatG = new Uint8Array(256);
@@ -2432,6 +2459,110 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
     g.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
     g.globalAlpha = 1;
     g.restore();
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PARTICLES RENDERER
+═══════════════════════════════════════════════════════════════ */
+
+/* Spawn a single particle, reusing the first dead slot or creating a new one
+   up to the current density cap. */
+function spawnParticle(px, py, vx, vy, size) {
+  const maxPool = params.particleDensity;
+  let p = null;
+  for (let i = 0; i < particlePool.length; i++) {
+    if (particlePool[i].life <= 0) { p = particlePool[i]; break; }
+  }
+  if (!p) {
+    if (particlePool.length >= maxPool) return;
+    p = {};
+    particlePool.push(p);
+  }
+  const accentHue = hexToHue(THEME.accent);
+  const vMag      = Math.sqrt(vx * vx + vy * vy);
+  p.x   = px;  p.y   = py;
+  p.vx  = vx;  p.vy  = vy;
+  p.life = 1;
+  p.size = size;
+  p.hue  = (accentHue + (vMag / 8) * 60) % 360;
+  p.lifeDecay = 1 / (60 + Math.random() * 120);
+}
+
+function renderParticles(time, W, H, vizFillAlpha) {
+  const cx = W / 2;
+  const cy = H / 2;
+
+  /* Subtle waveform behind particles */
+  g.save();
+  g.globalAlpha = 0.3;
+  renderWaveform(time, W, H, vizFillAlpha);
+  g.restore();
+
+  /* Continuous drizzle from centre scaled by RMS */
+  const rms      = AudioEngine.getRMS();
+  const baseVel  = 0.5 + rms * 4;
+  const nSpawn   = 1 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < nSpawn; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const vel   = baseVel * (0.5 + Math.random() * 0.5);
+    spawnParticle(cx, cy, Math.cos(angle) * vel, Math.sin(angle) * vel,
+                  2 + Math.random() * 3);
+  }
+
+  /* Beat burst from centre; bass energy scales count 30–60 */
+  if (BeatDetector.isBeat()) {
+    const bassEnergy = BeatDetector.beatEnergy();
+    const burst = Math.round(30 + bassEnergy * 30);
+    for (let i = 0; i < burst; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const vel   = 3 + Math.random() * 5;
+      spawnParticle(cx, cy, Math.cos(angle) * vel, Math.sin(angle) * vel,
+                    2.5 + Math.random() * 2.5);
+    }
+  }
+
+  /* Hit: 15–25 smaller fast particles from random edge positions inward */
+  if (BeatDetector.isHit()) {
+    const hitCount = 15 + Math.floor(Math.random() * 11);
+    for (let i = 0; i < hitCount; i++) {
+      const edge = Math.floor(Math.random() * 4);
+      let px, py;
+      if      (edge === 0) { px = Math.random() * W; py = 0; }
+      else if (edge === 1) { px = Math.random() * W; py = H; }
+      else if (edge === 2) { px = 0;                 py = Math.random() * H; }
+      else                 { px = W;                 py = Math.random() * H; }
+      const dx   = cx - px;
+      const dy   = cy - py;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const vel  = 3 + Math.random() * 4;
+      spawnParticle(px, py, (dx / dist) * vel, (dy / dist) * vel,
+                    1.5 + Math.random() * 1.5);
+    }
+  }
+
+  /* Update physics and draw live particles */
+  for (let i = 0; i < particlePool.length; i++) {
+    const p = particlePool[i];
+    if (p.life <= 0) continue;
+
+    p.vy   += 0.04;
+    p.x    += p.vx;
+    p.y    += p.vy;
+    p.vx   *= 0.97;
+    p.vy   *= 0.97;
+    p.life -= p.lifeDecay;
+    if (p.life < 0) p.life = 0;
+    if (p.life === 0) continue;
+
+    const drawSize = p.size * p.life;
+    if (drawSize < 0.5) continue;
+
+    g.beginPath();
+    g.arc(p.x, p.y, drawSize, 0, Math.PI * 2);
+    g.fillStyle = `hsla(${p.hue},100%,65%,${Math.sqrt(p.life) * vizFillAlpha})`;
+    g.fill();
   }
 }
 
@@ -2874,6 +3005,8 @@ function switchMode(mode) {
   document.getElementById('btn-mode-waveform').classList.toggle('active',    mode === 'waveform');
   document.getElementById('btn-mode-spectrogram').classList.toggle('active', mode === 'spectrogram');
   document.getElementById('btn-mode-radial').classList.toggle('active',      mode === 'radial');
+  document.getElementById('btn-mode-particles').classList.toggle('active',   mode === 'particles');
+  document.getElementById('row-density').style.display = mode === 'particles' ? '' : 'none';
 }
 
 function cycleMode() {
@@ -2919,10 +3052,11 @@ function render(freq, time) {
   /* 4. Visualizer — fill opacity reduced 20% when any background is active */
   const vizFillAlpha = (params.bgGradient || bgState.image) ? 0.8 : 1.0;
   switch (currentMode) {
-    case 'bars':        renderBars(freq, W, H, vizFillAlpha);        break;
-    case 'waveform':    renderWaveform(time, W, H, vizFillAlpha);    break;
-    case 'spectrogram': renderSpectrogram(freq, W, H, vizFillAlpha); break;
-    case 'radial':      renderRadial(freq, W, H, vizFillAlpha);      break;
+    case 'bars':        renderBars(freq, W, H, vizFillAlpha);           break;
+    case 'waveform':    renderWaveform(time, W, H, vizFillAlpha);       break;
+    case 'spectrogram': renderSpectrogram(freq, W, H, vizFillAlpha);    break;
+    case 'radial':      renderRadial(freq, W, H, vizFillAlpha);         break;
+    case 'particles':   renderParticles(time, W, H, vizFillAlpha);      break;
   }
 
   /* 5. Vignette */
@@ -3124,6 +3258,11 @@ function syncControlsToParams() {
   /* bloom */
   document.getElementById('ctrl-bloom').value = params.bloomIntensity;
   document.getElementById('val-bloom').textContent = params.bloomIntensity === 0 ? 'Off' : params.bloomIntensity;
+
+  /* particles */
+  document.getElementById('ctrl-density').value = params.particleDensity;
+  document.getElementById('val-density').textContent = params.particleDensity;
+  document.getElementById('row-density').style.display = currentMode === 'particles' ? '' : 'none';
 }
 
 
@@ -3158,6 +3297,9 @@ function applyPreset(preset, writeToHash = true) {
 
   /* bloom */
   params.bloomIntensity = preset.bloomIntensity ?? 0;
+
+  /* particles */
+  params.particleDensity = preset.particleDensity ?? 200;
 
   if (preset.name) {
     const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
@@ -3282,7 +3424,8 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     bgBlend:    params.bgBlend,
     bgFit:      params.bgFit,
     bgGradient: params.bgGradient,
-    bloomIntensity: params.bloomIntensity,
+    bloomIntensity:  params.bloomIntensity,
+    particleDensity: params.particleDensity,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -3849,6 +3992,10 @@ document.getElementById('btn-mode-radial').addEventListener('click', () => {
   switchModeAnimated('radial');
   markModified();
 });
+document.getElementById('btn-mode-particles').addEventListener('click', () => {
+  switchModeAnimated('particles');
+  markModified();
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3925,6 +4072,12 @@ document.getElementById('ctrl-barcount').addEventListener('input', e => {
 document.getElementById('ctrl-bloom').addEventListener('input', e => {
   params.bloomIntensity = parseInt(e.target.value, 10);
   document.getElementById('val-bloom').textContent = params.bloomIntensity === 0 ? 'Off' : params.bloomIntensity;
+  markModified();
+});
+
+document.getElementById('ctrl-density').addEventListener('input', e => {
+  params.particleDensity = parseInt(e.target.value, 10);
+  document.getElementById('val-density').textContent = params.particleDensity;
   markModified();
 });
 
