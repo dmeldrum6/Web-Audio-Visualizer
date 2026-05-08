@@ -1081,6 +1081,65 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
   text-align: center;
   font-style: italic;
 }
+
+/* ── Background image section ── */
+#bg-thumbnail {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid #28282f;
+  display: none;
+}
+#bg-thumbnail.visible { display: block; }
+
+.fit-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.fit-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border: 1px solid #26262d;
+  border-radius: 6px;
+  background: #181820;
+  cursor: pointer;
+  font-size: 7.5px;
+  color: #666678;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+}
+
+.fit-btn:hover {
+  background: #20202e;
+  border-color: #38384a;
+  color: #c8c8d8;
+}
+
+.fit-btn.active {
+  border-color: #2458a0;
+  background: #111828;
+  color: var(--accent-color);
+}
+
+.bg-note {
+  font-size: 9.5px;
+  color: #38383f;
+  text-align: center;
+  font-style: italic;
+  line-height: 1.4;
+}
 </style>
 </head>
 <body>
@@ -1395,6 +1454,71 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
         </div>
       </div>
 
+      <!-- Background section (collapsible) -->
+      <div class="ctrl-section collapsed" id="section-background">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Background</div>
+          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ctrl-section-body">
+
+          <input type="file" id="bg-file-input" accept="image/*" style="display:none">
+          <button class="btn" id="btn-load-bg">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Load Image
+          </button>
+
+          <img id="bg-thumbnail" alt="Background preview">
+
+          <button class="btn" id="btn-clear-bg" style="display:none">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6"  y1="6" x2="18" y2="18"/>
+            </svg>
+            Clear
+          </button>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Opacity</span>
+              <span class="ctrl-value" id="val-bg-opacity">1.0</span>
+            </div>
+            <input type="range" id="ctrl-bg-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Blend Mode</span>
+            <select class="ctrl-select" id="ctrl-bg-blend">
+              <option value="normal">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="soft-light">Soft Light</option>
+            </select>
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Fit</span>
+            <div class="fit-btn-grid" id="fit-btn-grid"></div>
+          </div>
+
+          <p class="bg-note">Images are saved locally only and not included in shared links</p>
+
+        </div>
+      </div>
+
       <div style="flex:1"></div>
     </div><!-- /sidebar -->
 
@@ -1505,6 +1629,10 @@ const params = {
   overlayColor:      '#ffffff',
   overlayOpacity:    1.0,
   overlayStyle:      'scroll',
+  /* background image */
+  bgOpacity: 1.0,
+  bgBlend:   'normal',
+  bgFit:     'cover',
 };
 
 
@@ -1842,6 +1970,16 @@ let vignetteW = -1, vignetteH = -1;
 let barsGrad  = null;
 let barsGradH = -1;
 
+/* Background image state */
+const bgState = {
+  image:      null,   /* HTMLImageElement | null */
+  objectUrl:  null,   /* blob URL to revoke on clear */
+  pattern:    null,   /* cached CanvasPattern for tile mode */
+  patternImg: null,   /* image the pattern was built from */
+  patternW:   -1,     /* canvas logical size at pattern creation */
+  patternH:   -1,
+};
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   logicalW = canvasWrap.clientWidth;
@@ -1849,9 +1987,11 @@ function resizeCanvas() {
   canvas.width  = Math.round(logicalW * dpr);
   canvas.height = Math.round(logicalH * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  barsGradH  = -1;
-  vignetteW  = -1;
-  vignetteH  = -1;
+  barsGradH      = -1;
+  vignetteW      = -1;
+  vignetteH      = -1;
+  bgState.patternW = -1; /* invalidate tile pattern cache on resize */
+  bgState.patternH = -1;
 }
 
 new ResizeObserver(resizeCanvas).observe(canvasWrap);
@@ -1925,9 +2065,7 @@ function ensureSpectrogram(W, H) {
 /* ═══════════════════════════════════════════════════════════════
    MODE RENDERERS
 ═══════════════════════════════════════════════════════════════ */
-function renderBars(freq, W, H) {
-  g.fillStyle = THEME.bgColor;
-  g.fillRect(0, 0, W, H);
+function renderBars(freq, W, H, vizFillAlpha = 1) {
   if (!freq) return;
 
   if (barsGradH !== H) {
@@ -1945,7 +2083,8 @@ function renderBars(freq, W, H) {
   const maxBarH  = centerY * 0.95;
   const smoothK  = 0.08 + 0.14 * params.motionAmount;
 
-  g.fillStyle = barsGrad;
+  g.globalAlpha = vizFillAlpha;
+  g.fillStyle   = barsGrad;
 
   for (let i = 0; i < barCount; i++) {
     const srcI = (params.mirror && i >= barCount / 2) ? barCount - 1 - i : i;
@@ -1962,11 +2101,11 @@ function renderBars(freq, W, H) {
     g.fillRect(x, centerY - bh, drawW, bh);
     g.fillRect(x, centerY,      drawW, bh);
   }
+
+  g.globalAlpha = 1;
 }
 
-function renderWaveform(time, W, H) {
-  g.fillStyle = THEME.bgColor;
-  g.fillRect(0, 0, W, H);
+function renderWaveform(time, W, H, vizFillAlpha = 1) {
   if (!time) return;
 
   wavePhase = (wavePhase + 0.004 * params.motionAmount) % 1;
@@ -1989,10 +2128,11 @@ function renderWaveform(time, W, H) {
     g.lineTo(W, centerY);
     g.lineTo(0, centerY);
     g.closePath();
-    g.fillStyle = `rgba(${wr},${wg2},${wb},0.08)`;
+    g.fillStyle = `rgba(${wr},${wg2},${wb},${0.08 * vizFillAlpha})`;
     g.fill();
   }
 
+  /* Strokes are unaffected by vizFillAlpha per spec */
   g.beginPath();
   g.moveTo(0, waveYBuf[0]);
   for (let i = 1; i < W; i++) g.lineTo(i, waveYBuf[i]);
@@ -2008,7 +2148,7 @@ function renderWaveform(time, W, H) {
   g.stroke();
 }
 
-function renderSpectrogram(freq, W, H) {
+function renderSpectrogram(freq, W, H, vizFillAlpha = 1) {
   ensureSpectrogram(W, H);
 
   if (freq) {
@@ -2030,7 +2170,9 @@ function renderSpectrogram(freq, W, H) {
     spectroCtx2.putImageData(sd, spectroSW - 2, 0);
   }
 
+  g.globalAlpha = vizFillAlpha;
   g.drawImage(spectroCanvas, 0, 0, W, H);
+  g.globalAlpha = 1;
 }
 
 
@@ -2050,6 +2192,124 @@ function drawVignette(W, H) {
   }
   g.fillStyle = vignetteGrad;
   g.fillRect(0, 0, W, H);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   BACKGROUND IMAGE
+═══════════════════════════════════════════════════════════════ */
+function drawBackground(W, H) {
+  const img = bgState.image;
+  if (!img) return;
+
+  g.globalAlpha              = params.bgOpacity;
+  g.globalCompositeOperation = params.bgBlend;
+
+  switch (params.bgFit) {
+    case 'cover': {
+      const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const dw    = img.naturalWidth  * scale;
+      const dh    = img.naturalHeight * scale;
+      g.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      break;
+    }
+    case 'contain': {
+      /* Remaining area already shows bgColor from the canvas clear */
+      const scale = Math.min(W / img.naturalWidth, H / img.naturalHeight);
+      const dw    = img.naturalWidth  * scale;
+      const dh    = img.naturalHeight * scale;
+      g.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      break;
+    }
+    case 'stretch': {
+      g.drawImage(img, 0, 0, W, H);
+      break;
+    }
+    case 'tile': {
+      if (bgState.patternImg !== img || bgState.patternW !== W || bgState.patternH !== H) {
+        bgState.pattern    = g.createPattern(img, 'repeat');
+        bgState.patternImg = img;
+        bgState.patternW   = W;
+        bgState.patternH   = H;
+      }
+      g.fillStyle = bgState.pattern;
+      g.fillRect(0, 0, W, H);
+      break;
+    }
+  }
+
+  g.globalAlpha              = 1;
+  g.globalCompositeOperation = 'source-over';
+}
+
+function loadBackgroundFromFile(file) {
+  if (bgState.objectUrl) URL.revokeObjectURL(bgState.objectUrl);
+  const url = URL.createObjectURL(file);
+  bgState.objectUrl = url;
+  const img = new Image();
+  img.onload = () => {
+    bgState.image      = img;
+    bgState.pattern    = null;
+    bgState.patternImg = null;
+    const thumb = document.getElementById('bg-thumbnail');
+    thumb.src = url;
+    thumb.classList.add('visible');
+    document.getElementById('btn-clear-bg').style.display = '';
+  };
+  img.src = url;
+}
+
+function loadBackgroundFromDataUrl(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    bgState.image      = img;
+    bgState.pattern    = null;
+    bgState.patternImg = null;
+    const thumb = document.getElementById('bg-thumbnail');
+    thumb.src = dataUrl;
+    thumb.classList.add('visible');
+    document.getElementById('btn-clear-bg').style.display = '';
+  };
+  img.src = dataUrl;
+}
+
+function imageToDataUrl(img) {
+  const maxDim = 1920;
+  const scale  = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+  const c      = document.createElement('canvas');
+  c.width      = Math.round(img.naturalWidth  * scale);
+  c.height     = Math.round(img.naturalHeight * scale);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+function clearBackground() {
+  if (bgState.objectUrl) {
+    URL.revokeObjectURL(bgState.objectUrl);
+    bgState.objectUrl = null;
+  }
+  bgState.image      = null;
+  bgState.pattern    = null;
+  bgState.patternImg = null;
+
+  params.bgOpacity = 1.0;
+  params.bgBlend   = 'normal';
+  params.bgFit     = 'cover';
+
+  const thumb = document.getElementById('bg-thumbnail');
+  thumb.classList.remove('visible');
+  thumb.src = '';
+  document.getElementById('btn-clear-bg').style.display = 'none';
+  document.getElementById('ctrl-bg-opacity').value = '1.0';
+  document.getElementById('val-bg-opacity').textContent = '1.0';
+  document.getElementById('ctrl-bg-blend').value = 'normal';
+  updateFitButtons('cover');
+}
+
+function updateFitButtons(fit) {
+  document.querySelectorAll('.fit-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.fit === fit);
+  });
 }
 
 
@@ -2304,14 +2564,32 @@ function render(freq, time) {
   const W = logicalW;
   const H = logicalH;
 
+  /* 1. Clear canvas with theme background color */
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.fillStyle   = THEME.bgColor;
+  g.fillRect(0, 0, W, H);
+
+  /* 2. Background image (if loaded) */
+  drawBackground(W, H);
+
+  /* 3. Reset compositing before visualizer pass */
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+
+  /* 4. Visualizer — fill opacity reduced 20% when background is active */
+  const vizFillAlpha = bgState.image ? 0.8 : 1.0;
   switch (currentMode) {
-    case 'bars':        renderBars(freq, W, H);        break;
-    case 'waveform':    renderWaveform(time, W, H);    break;
-    case 'spectrogram': renderSpectrogram(freq, W, H); break;
+    case 'bars':        renderBars(freq, W, H, vizFillAlpha);        break;
+    case 'waveform':    renderWaveform(time, W, H, vizFillAlpha);    break;
+    case 'spectrogram': renderSpectrogram(freq, W, H, vizFillAlpha); break;
   }
 
-  drawTextOverlay();
+  /* 5. Vignette */
   drawVignette(W, H);
+
+  /* 6. Text overlay */
+  drawTextOverlay();
 
   /* Mode transition fade-to-black overlay */
   if (modeTransition) {
@@ -2462,6 +2740,12 @@ function syncControlsToParams() {
   document.querySelectorAll('.style-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.style === params.overlayStyle);
   });
+
+  /* background */
+  document.getElementById('ctrl-bg-opacity').value = params.bgOpacity;
+  document.getElementById('val-bg-opacity').textContent = params.bgOpacity.toFixed(1);
+  document.getElementById('ctrl-bg-blend').value = params.bgBlend;
+  updateFitButtons(params.bgFit);
 }
 
 
@@ -2486,6 +2770,26 @@ function applyPreset(preset, writeToHash = true) {
   params.overlayOpacity    = preset.overlayOpacity    ?? 1.0;
   params.overlayStyle      = preset.overlayStyle      ?? 'scroll';
   resetOverlayTimer();
+
+  /* background */
+  params.bgOpacity = preset.bgOpacity ?? 1.0;
+  params.bgBlend   = preset.bgBlend   ?? 'normal';
+  params.bgFit     = preset.bgFit     ?? 'cover';
+
+  if (preset.name) {
+    const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
+    if (storedImg) {
+      loadBackgroundFromDataUrl(storedImg);
+    } else {
+      clearBackground();
+      /* Restore params that clearBackground reset */
+      params.bgOpacity = preset.bgOpacity ?? 1.0;
+      params.bgBlend   = preset.bgBlend   ?? 'normal';
+      params.bgFit     = preset.bgFit     ?? 'cover';
+    }
+  } else {
+    clearBackground();
+  }
 
   applyTheme(preset.theme);
   switchMode(preset.mode);
@@ -2554,6 +2858,7 @@ function refreshPresetGrid() {
         e.stopPropagation();
         const updated = loadSavedPresets().filter(p => p.name !== preset.name);
         persistSavedPresets(updated);
+        localStorage.removeItem(`audio-viz-bg-${preset.name}`);
         if (activePresetName === preset.name) activePresetName = null;
         refreshPresetGrid();
       });
@@ -2589,11 +2894,31 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     overlayColor:      params.overlayColor,
     overlayOpacity:    params.overlayOpacity,
     overlayStyle:      params.overlayStyle,
+    bgOpacity: params.bgOpacity,
+    bgBlend:   params.bgBlend,
+    bgFit:     params.bgFit,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
   updated.push(preset);
   persistSavedPresets(updated);
+
+  /* Optionally save background image to localStorage */
+  const bgImgKey = `audio-viz-bg-${name}`;
+  if (bgState.image) {
+    if (confirm('Include background image in this preset?\n(Stored locally only — not in shared links)')) {
+      try {
+        localStorage.setItem(bgImgKey, imageToDataUrl(bgState.image));
+      } catch (_) {
+        showToast('Could not save image — local storage may be full', 'warn');
+        localStorage.removeItem(bgImgKey);
+      }
+    } else {
+      localStorage.removeItem(bgImgKey);
+    }
+  } else {
+    localStorage.removeItem(bgImgKey);
+  }
 
   activePresetName = name;
   const encoded = encodePreset(preset);
@@ -3440,6 +3765,93 @@ document.getElementById('ctrl-overlay-color').addEventListener('input', e => {
 document.getElementById('ctrl-overlay-opacity').addEventListener('input', e => {
   params.overlayOpacity = parseFloat(e.target.value);
   document.getElementById('val-overlay-opacity').textContent = params.overlayOpacity.toFixed(1);
+  markModified();
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   BACKGROUND — fit-button grid + UI bindings
+═══════════════════════════════════════════════════════════════ */
+const FIT_DEFS = [
+  {
+    id: 'cover',
+    label: 'Cover',
+    icon: `<svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="1" y="1" width="16" height="12" rx="1.5"/>
+      <rect x="3" y="3" width="12" height="8" rx="1" opacity="0.5" fill="currentColor" stroke="none"/>
+    </svg>`,
+  },
+  {
+    id: 'contain',
+    label: 'Contain',
+    icon: `<svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="1" y="1" width="16" height="12" rx="1.5"/>
+      <rect x="5" y="3" width="8" height="8" rx="1" opacity="0.5" fill="currentColor" stroke="none"/>
+    </svg>`,
+  },
+  {
+    id: 'stretch',
+    label: 'Stretch',
+    icon: `<svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="1" y="1" width="16" height="12" rx="1.5" fill="currentColor" opacity="0.25" stroke="currentColor"/>
+      <line x1="6"  y1="2" x2="6"  y2="12" opacity="0.55"/>
+      <line x1="12" y1="2" x2="12" y2="12" opacity="0.55"/>
+    </svg>`,
+  },
+  {
+    id: 'tile',
+    label: 'Tile',
+    icon: `<svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="1" y="1" width="16" height="12" rx="1.5"/>
+      <rect x="2"  y="2"  width="6" height="5" rx="0.5" opacity="0.4" fill="currentColor" stroke="none"/>
+      <rect x="10" y="2"  width="7" height="5" rx="0.5" opacity="0.4" fill="currentColor" stroke="none"/>
+      <rect x="2"  y="8"  width="7" height="5" rx="0.5" opacity="0.4" fill="currentColor" stroke="none"/>
+      <rect x="11" y="8"  width="6" height="5" rx="0.5" opacity="0.4" fill="currentColor" stroke="none"/>
+    </svg>`,
+  },
+];
+
+(function initFitBtnGrid() {
+  const grid = document.getElementById('fit-btn-grid');
+  FIT_DEFS.forEach(def => {
+    const btn = document.createElement('button');
+    btn.className   = 'fit-btn' + (def.id === params.bgFit ? ' active' : '');
+    btn.dataset.fit = def.id;
+    btn.innerHTML   = def.icon + `<span>${def.label}</span>`;
+    btn.addEventListener('click', () => {
+      params.bgFit = def.id;
+      updateFitButtons(def.id);
+      markModified();
+    });
+    grid.appendChild(btn);
+  });
+})();
+
+document.getElementById('btn-load-bg').addEventListener('click', () => {
+  document.getElementById('bg-file-input').click();
+});
+
+document.getElementById('bg-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadBackgroundFromFile(file);
+  e.target.value = '';
+  markModified();
+});
+
+document.getElementById('btn-clear-bg').addEventListener('click', () => {
+  clearBackground();
+  markModified();
+});
+
+document.getElementById('ctrl-bg-opacity').addEventListener('input', e => {
+  params.bgOpacity = parseFloat(e.target.value);
+  document.getElementById('val-bg-opacity').textContent = params.bgOpacity.toFixed(1);
+  markModified();
+});
+
+document.getElementById('ctrl-bg-blend').addEventListener('change', e => {
+  params.bgBlend = e.target.value;
   markModified();
 });
 
