@@ -875,6 +875,110 @@ input[type="range"]::-moz-range-thumb {
   #drawer-handle { display: flex; }
 
   #toast-container { bottom: 80px; }
+  #canvas-wrap.with-playbar { top: 100px; }
+}
+
+/* ── Playback bar ── */
+#playback-bar {
+  display: none;
+  align-items: center;
+  height: 52px;
+  min-height: 52px;
+  padding: 0 14px;
+  background: #1a1a1f;
+  border-bottom: 1px solid #26262d;
+  gap: 8px;
+  z-index: 9;
+  flex-shrink: 0;
+}
+
+#playback-bar.visible { display: flex; }
+
+.pb-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 1px solid #28282f;
+  border-radius: 6px;
+  background: #202028;
+  color: #aaaab8;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  outline: none;
+  padding: 0;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pb-btn:hover  { background: #28283a; border-color: #38384a; color: #d8d8e8; }
+.pb-btn:active { background: #1a1a26; }
+.pb-btn.active {
+  background: #102038;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+#pb-seek { flex: 1; min-width: 0; }
+
+.pb-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #888898;
+  white-space: nowrap;
+  min-width: 28px;
+  letter-spacing: 0.2px;
+}
+
+#pb-speed {
+  background: #202028;
+  border: 1px solid #28282f;
+  border-radius: 5px;
+  color: #aaaab8;
+  padding: 3px 20px 3px 7px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 56px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23555566'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+#pb-speed:focus { border-color: #3878d0; }
+
+/* ── File info chip in topbar ── */
+#file-info {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  max-width: 190px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#file-info.visible { display: flex; }
+
+#file-info-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #88889a;
+  min-width: 0;
+}
+
+#file-info-sep { color: #404048; flex-shrink: 0; }
+
+#file-info-dur {
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: #555568;
 }
 </style>
 </head>
@@ -899,8 +1003,48 @@ input[type="range"]::-moz-range-thumb {
       </button>
       <button class="btn" id="btn-copy-link">Copy link</button>
       <button class="btn" id="btn-shortcuts" title="Keyboard shortcuts (?)">?</button>
+      <div id="file-info">
+        <span id="file-info-name"></span>
+        <span id="file-info-sep">·</span>
+        <span id="file-info-dur"></span>
+      </div>
       <span id="fps-counter">-- fps</span>
     </div>
+  </div>
+
+  <!-- Playback bar (visible only when a file is loaded) -->
+  <div id="playback-bar">
+    <button class="pb-btn" id="pb-play" title="Play / Pause (Space)">
+      <svg id="pb-play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+    </button>
+    <button class="pb-btn" id="pb-stop" title="Stop">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>
+    </button>
+    <span class="pb-time" id="pb-current">0:00</span>
+    <input type="range" id="pb-seek" min="0" max="100" step="0.01" value="0">
+    <span class="pb-time" id="pb-duration">0:00</span>
+    <button class="pb-btn" id="pb-loop" title="Loop">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"/>
+        <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+        <polyline points="7 23 3 19 7 15"/>
+        <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+    </button>
+    <select id="pb-speed" title="Playback speed">
+      <option value="0.5">0.5×</option>
+      <option value="0.75">0.75×</option>
+      <option value="1" selected>1×</option>
+      <option value="1.25">1.25×</option>
+      <option value="1.5">1.5×</option>
+      <option value="2">2×</option>
+    </select>
   </div>
 
   <!-- Body -->
@@ -1124,6 +1268,10 @@ input[type="range"]::-moz-range-thumb {
       <span class="shortcut-desc">Play / pause audio</span>
     </div>
     <div class="shortcut-row">
+      <span class="shortcut-key">← / →</span>
+      <span class="shortcut-desc">Seek ±5 s (file)</span>
+    </div>
+    <div class="shortcut-row">
       <span class="shortcut-key">M</span>
       <span class="shortcut-desc">Cycle visualizer mode</span>
     </div>
@@ -1230,6 +1378,16 @@ const AudioEngine = (() => {
   let activeStream = null;
   let sourceType   = null;
 
+  /* File transport */
+  let audioBuf         = null;
+  let bufSrc           = null;
+  let fileIsPlaying    = false;
+  let pauseOffset      = 0;
+  let playStartTime    = 0;
+  let loopEnabled      = false;
+  let filePlaybackRate = 1.0;
+  let onFileEndedCb    = null;
+
   function init() {
     if (ctx) return;
 
@@ -1259,6 +1417,18 @@ const AudioEngine = (() => {
   }
 
   function disconnectActive() {
+    /* Stop file buffer source */
+    if (bufSrc) {
+      bufSrc.onended = null;
+      try { bufSrc.stop(); }       catch (_) {}
+      try { bufSrc.disconnect(); } catch (_) {}
+      bufSrc = null;
+    }
+    audioBuf      = null;
+    fileIsPlaying = false;
+    pauseOffset   = 0;
+
+    /* Stop mic source */
     if (activeSource) {
       try { activeSource.disconnect(); } catch (_) {}
       if (typeof activeSource.stop === 'function') {
@@ -1288,23 +1458,124 @@ const AudioEngine = (() => {
     sourceType   = 'mic';
   }
 
+  /* Internal: create, connect, and start a new BufferSource at the given offset */
+  function createAndStartBufSrc(offset) {
+    if (bufSrc) {
+      bufSrc.onended = null;
+      try { bufSrc.stop(); }       catch (_) {}
+      try { bufSrc.disconnect(); } catch (_) {}
+      bufSrc = null;
+    }
+    const node = ctx.createBufferSource();
+    node.buffer = audioBuf;
+    node.playbackRate.value = filePlaybackRate;
+    node.connect(gainNode);
+    node.onended = function () {
+      if (bufSrc !== node) return; /* manually stopped — ignore */
+      bufSrc = null;
+      fileIsPlaying = false;
+      if (loopEnabled) {
+        pauseOffset = 0;
+        createAndStartBufSrc(0);
+      } else {
+        pauseOffset = 0;
+        onFileEndedCb && onFileEndedCb();
+      }
+    };
+    node.start(0, offset);
+    bufSrc = node;
+    playStartTime = ctx.currentTime;
+    fileIsPlaying = true;
+  }
+
   async function connectFile(file) {
     init();
     disconnectActive();
 
     const arrayBuf = await file.arrayBuffer();
-    const audioBuf = await ctx.decodeAudioData(arrayBuf);
+    audioBuf = await ctx.decodeAudioData(arrayBuf);
 
     if (ctx.state === 'suspended') await ctx.resume();
 
-    const node = ctx.createBufferSource();
-    node.buffer = audioBuf;
-    node.loop   = true;
-    node.connect(gainNode);
-    node.start(0);
-    activeSource = node;
-    sourceType   = 'file';
+    pauseOffset = 0;
+    filePlaybackRate = 1.0;
+    loopEnabled = false;
+    createAndStartBufSrc(0);
+    sourceType = 'file';
   }
+
+  async function filePlay() {
+    if (!audioBuf || !ctx || fileIsPlaying) return;
+    if (ctx.state === 'suspended') await ctx.resume();
+    createAndStartBufSrc(pauseOffset);
+  }
+
+  function filePause() {
+    if (!fileIsPlaying || !bufSrc) return;
+    pauseOffset = fileGetOffset();
+    bufSrc.onended = null;
+    try { bufSrc.stop(); }       catch (_) {}
+    try { bufSrc.disconnect(); } catch (_) {}
+    bufSrc = null;
+    fileIsPlaying = false;
+  }
+
+  function fileStop() {
+    if (bufSrc) {
+      bufSrc.onended = null;
+      try { bufSrc.stop(); }       catch (_) {}
+      try { bufSrc.disconnect(); } catch (_) {}
+      bufSrc = null;
+    }
+    fileIsPlaying = false;
+    pauseOffset   = 0;
+  }
+
+  function fileSeek(seconds) {
+    if (!audioBuf) return;
+    seconds = Math.max(0, Math.min(seconds, audioBuf.duration));
+    pauseOffset = seconds;
+    if (fileIsPlaying) {
+      if (bufSrc) {
+        bufSrc.onended = null;
+        try { bufSrc.stop(); }       catch (_) {}
+        try { bufSrc.disconnect(); } catch (_) {}
+        bufSrc = null;
+      }
+      fileIsPlaying = false;
+      createAndStartBufSrc(seconds);
+    }
+  }
+
+  function fileGetOffset() {
+    if (!audioBuf) return 0;
+    if (!fileIsPlaying) return pauseOffset;
+    let pos = pauseOffset + (ctx.currentTime - playStartTime) * filePlaybackRate;
+    if (loopEnabled) {
+      pos = ((pos % audioBuf.duration) + audioBuf.duration) % audioBuf.duration;
+    } else {
+      pos = Math.min(pos, audioBuf.duration);
+    }
+    return pos;
+  }
+
+  function fileGetDuration()  { return audioBuf ? audioBuf.duration : 0; }
+  function fileGetIsPlaying() { return fileIsPlaying; }
+  function fileSetLoop(val)   { loopEnabled = !!val; }
+
+  function fileSetPlaybackRate(rate) {
+    if (fileIsPlaying && bufSrc) {
+      /* Snapshot current position, update startTime anchor, change rate live */
+      pauseOffset   = fileGetOffset();
+      playStartTime = ctx.currentTime;
+      filePlaybackRate = rate;
+      bufSrc.playbackRate.value = rate;
+    } else {
+      filePlaybackRate = rate;
+    }
+  }
+
+  function fileSetOnEnded(cb) { onFileEndedCb = cb; }
 
   function setFftSize(size) {
     params.fftSize = size;
@@ -1371,6 +1642,9 @@ const AudioEngine = (() => {
     getFrequencyData, getTimeDomainData, getRMS,
     getState, getContext, getSourceType, resume,
     getAudioStream,
+    filePlay, filePause, fileStop, fileSeek,
+    fileGetOffset, fileGetDuration, fileGetIsPlaying,
+    fileSetLoop, fileSetPlaybackRate, fileSetOnEnded,
   };
 })();
 
@@ -2033,6 +2307,17 @@ function loop(now) {
   const rms = AudioEngine.getRMS();
   updateLevelMeter(rms);
   checkSafeListen(rms);
+
+  /* Tick seek bar while a file is active and the user is not dragging */
+  if (AudioEngine.getSourceType() === 'file' && !pbIsSeeking) {
+    const dur = AudioEngine.fileGetDuration();
+    const pos = AudioEngine.fileGetOffset();
+    if (dur > 0) {
+      pbSeekEl.value = pos;
+      pbCurrentEl.textContent = formatTime(pos);
+      updateSeekBarStyle(pos, dur);
+    }
+  }
 }
 
 requestAnimationFrame(loop);
@@ -2229,6 +2514,7 @@ btnMic.addEventListener('click', async () => {
     srcLabel.textContent = 'Microphone active';
     tapOver.classList.remove('show');
     hasSource = true;
+    hidePlaybackBar();
   } catch (err) {
     console.error('[AudioEngine] mic error:', err);
     srcLabel.textContent = 'Mic error: ' + (err.message || String(err));
@@ -2253,6 +2539,7 @@ fileInput.addEventListener('change', async () => {
     srcLabel.textContent = '▶ ' + file.name;
     tapOver.classList.remove('show');
     hasSource = true;
+    showPlaybackBar(file.name);
   } catch (err) {
     console.error('[AudioEngine] file error:', err);
     srcLabel.textContent = 'Error: ' + (err.message || String(err));
@@ -2263,6 +2550,137 @@ fileInput.addEventListener('change', async () => {
     fileInput.value = '';
   }
 });
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FILE TRANSPORT
+═══════════════════════════════════════════════════════════════ */
+const playbackBar  = document.getElementById('playback-bar');
+const pbPlayBtn    = document.getElementById('pb-play');
+const pbStopBtn    = document.getElementById('pb-stop');
+const pbLoopBtn    = document.getElementById('pb-loop');
+const pbSeekEl     = document.getElementById('pb-seek');
+const pbCurrentEl  = document.getElementById('pb-current');
+const pbDurationEl = document.getElementById('pb-duration');
+const pbSpeedEl    = document.getElementById('pb-speed');
+const pbPlayIcon   = document.getElementById('pb-play-icon');
+const fileInfoEl   = document.getElementById('file-info');
+const fileInfoName = document.getElementById('file-info-name');
+const fileInfoDur  = document.getElementById('file-info-dur');
+
+let pbIsSeeking = false;
+let pbLoopOn    = false;
+
+const PB_PLAY_ICON  = `<polygon points="5 3 19 12 5 21 5 3"/>`;
+const PB_PAUSE_ICON = `<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>`;
+
+function formatTime(secs) {
+  secs = Math.max(0, Math.floor(secs));
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+}
+
+function updateSeekBarStyle(pos, dur) {
+  const pct = dur > 0 ? (pos / dur * 100) : 0;
+  pbSeekEl.style.background =
+    `linear-gradient(to right, var(--accent-color) ${pct}%, #28282f ${pct}%)`;
+}
+
+function updatePbPlayIcon() {
+  pbPlayIcon.innerHTML = AudioEngine.fileGetIsPlaying() ? PB_PAUSE_ICON : PB_PLAY_ICON;
+}
+
+function showPlaybackBar(filename) {
+  const dur  = AudioEngine.fileGetDuration();
+  const name = filename.length > 28 ? filename.slice(0, 27) + '…' : filename;
+
+  fileInfoName.textContent = name;
+  fileInfoDur.textContent  = formatTime(dur);
+  fileInfoEl.classList.add('visible');
+
+  pbSeekEl.max = dur;
+  pbSeekEl.value = 0;
+  pbDurationEl.textContent = formatTime(dur);
+  pbCurrentEl.textContent  = '0:00';
+  pbSeekEl.style.background = '#28282f';
+
+  /* File starts playing immediately */
+  pbPlayIcon.innerHTML = PB_PAUSE_ICON;
+  pbLoopOn = false;
+  pbLoopBtn.classList.remove('active');
+  pbSpeedEl.value = '1';
+
+  AudioEngine.fileSetOnEnded(onPbFileEnded);
+
+  playbackBar.classList.add('visible');
+  canvasWrap.classList.add('with-playbar');
+}
+
+function hidePlaybackBar() {
+  playbackBar.classList.remove('visible');
+  canvasWrap.classList.remove('with-playbar');
+  fileInfoEl.classList.remove('visible');
+}
+
+function onPbFileEnded() {
+  pbPlayIcon.innerHTML = PB_PLAY_ICON;
+  pbSeekEl.value = 0;
+  pbCurrentEl.textContent = '0:00';
+  pbSeekEl.style.background = '#28282f';
+}
+
+/* Play / Pause */
+pbPlayBtn.addEventListener('click', async () => {
+  if (AudioEngine.getSourceType() !== 'file') return;
+  if (AudioEngine.fileGetIsPlaying()) {
+    AudioEngine.filePause();
+  } else {
+    await AudioEngine.filePlay();
+  }
+  updatePbPlayIcon();
+});
+
+/* Stop */
+pbStopBtn.addEventListener('click', () => {
+  if (AudioEngine.getSourceType() !== 'file') return;
+  AudioEngine.fileStop();
+  updatePbPlayIcon();
+  pbSeekEl.value = 0;
+  pbCurrentEl.textContent = '0:00';
+  updateSeekBarStyle(0, AudioEngine.fileGetDuration());
+});
+
+/* Loop toggle */
+pbLoopBtn.addEventListener('click', () => {
+  pbLoopOn = !pbLoopOn;
+  AudioEngine.fileSetLoop(pbLoopOn);
+  pbLoopBtn.classList.toggle('active', pbLoopOn);
+});
+
+/* Speed */
+pbSpeedEl.addEventListener('change', () => {
+  AudioEngine.fileSetPlaybackRate(parseFloat(pbSpeedEl.value));
+});
+
+/* Seek bar — start drag */
+pbSeekEl.addEventListener('mousedown',  () => { pbIsSeeking = true; });
+pbSeekEl.addEventListener('touchstart', () => { pbIsSeeking = true; }, { passive: true });
+
+/* Seek bar — update display while scrubbing */
+pbSeekEl.addEventListener('input', () => {
+  const val = parseFloat(pbSeekEl.value);
+  pbCurrentEl.textContent = formatTime(val);
+  updateSeekBarStyle(val, AudioEngine.fileGetDuration());
+});
+
+/* Seek bar — commit on release */
+function finishSeek() {
+  if (!pbIsSeeking) return;
+  pbIsSeeking = false;
+  AudioEngine.fileSeek(parseFloat(pbSeekEl.value));
+}
+pbSeekEl.addEventListener('mouseup',  finishSeek);
+pbSeekEl.addEventListener('touchend', finishSeek);
+pbSeekEl.addEventListener('change',   finishSeek);
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2377,12 +2795,37 @@ document.addEventListener('keydown', e => {
   switch (e.key) {
     case ' ':
       e.preventDefault();
-      (async () => {
-        const ac = AudioEngine.getContext();
-        if (!ac) return;
-        if (ac.state === 'running')   await ac.suspend();
-        else if (ac.state === 'suspended') await ac.resume();
-      })();
+      if (AudioEngine.getSourceType() === 'file') {
+        (async () => {
+          if (AudioEngine.fileGetIsPlaying()) {
+            AudioEngine.filePause();
+          } else {
+            await AudioEngine.filePlay();
+          }
+          updatePbPlayIcon();
+        })();
+      } else {
+        (async () => {
+          const ac = AudioEngine.getContext();
+          if (!ac) return;
+          if (ac.state === 'running')        await ac.suspend();
+          else if (ac.state === 'suspended') await ac.resume();
+        })();
+      }
+      break;
+
+    case 'ArrowLeft':
+      if (AudioEngine.getSourceType() === 'file') {
+        e.preventDefault();
+        AudioEngine.fileSeek(AudioEngine.fileGetOffset() - 5);
+      }
+      break;
+
+    case 'ArrowRight':
+      if (AudioEngine.getSourceType() === 'file') {
+        e.preventDefault();
+        AudioEngine.fileSeek(AudioEngine.fileGetOffset() + 5);
+      }
       break;
 
     case 'm':
