@@ -1384,6 +1384,14 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <input type="range" id="ctrl-barcount" min="32" max="256" step="4" value="128">
           </div>
 
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Bloom</span>
+              <span class="ctrl-value" id="val-bloom">Off</span>
+            </div>
+            <input type="range" id="ctrl-bloom" min="0" max="5" step="1" value="0">
+          </div>
+
         </div>
       </div>
 
@@ -1695,6 +1703,8 @@ const params = {
   bgOpacity: 1.0,
   bgBlend:   'normal',
   bgFit:     'cover',
+  /* bloom/glow */
+  bloomIntensity: 0,
 };
 
 
@@ -2109,6 +2119,10 @@ const idleEl     = document.getElementById('idle-msg');
 
 let logicalW = 1, logicalH = 1;
 
+/* Bloom off-screen canvas */
+let bloomCanvas = document.createElement('canvas');
+let bloomCtx    = bloomCanvas.getContext('2d');
+
 /* Vignette gradient cache — invalidated on resize */
 let vignetteGrad = null;
 let vignetteW = -1, vignetteH = -1;
@@ -2134,6 +2148,9 @@ function resizeCanvas() {
   canvas.width  = Math.round(logicalW * dpr);
   canvas.height = Math.round(logicalH * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  bloomCanvas.width  = canvas.width;
+  bloomCanvas.height = canvas.height;
+  bloomCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   barsGradH      = -1;
   vignetteW      = -1;
   vignetteH      = -1;
@@ -2769,6 +2786,26 @@ function render(freq, time) {
       g.fillRect(0, 0, W, H);
     }
   }
+
+  /* Bloom/glow post-processing */
+  if (params.bloomIntensity > 0) {
+    const N         = params.bloomIntensity;
+    const blurPx    = 4 + (N - 1) * 3.5;
+    const baseAlpha = 0.3 + (N - 1) * 0.05;
+    const energy    = BeatDetector.beatEnergy();
+    const finalAlpha = Math.min(1, baseAlpha * (1 + energy * 0.5));
+
+    bloomCtx.clearRect(0, 0, W, H);
+    bloomCtx.filter = `blur(${blurPx}px)`;
+    bloomCtx.drawImage(canvas, 0, 0, W, H);
+    bloomCtx.filter = 'none';
+
+    g.globalAlpha = finalAlpha;
+    g.globalCompositeOperation = 'lighter';
+    g.drawImage(bloomCanvas, 0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1;
+  }
 }
 
 
@@ -2915,6 +2952,10 @@ function syncControlsToParams() {
   document.getElementById('val-bg-opacity').textContent = params.bgOpacity.toFixed(1);
   document.getElementById('ctrl-bg-blend').value = params.bgBlend;
   updateFitButtons(params.bgFit);
+
+  /* bloom */
+  document.getElementById('ctrl-bloom').value = params.bloomIntensity;
+  document.getElementById('val-bloom').textContent = params.bloomIntensity === 0 ? 'Off' : params.bloomIntensity;
 }
 
 
@@ -2945,6 +2986,9 @@ function applyPreset(preset, writeToHash = true) {
   params.bgOpacity = preset.bgOpacity ?? 1.0;
   params.bgBlend   = preset.bgBlend   ?? 'normal';
   params.bgFit     = preset.bgFit     ?? 'cover';
+
+  /* bloom */
+  params.bloomIntensity = preset.bloomIntensity ?? 0;
 
   if (preset.name) {
     const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
@@ -3068,6 +3112,7 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     bgOpacity: params.bgOpacity,
     bgBlend:   params.bgBlend,
     bgFit:     params.bgFit,
+    bloomIntensity: params.bloomIntensity,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -3699,6 +3744,12 @@ document.getElementById('ctrl-barcount').addEventListener('input', e => {
   document.getElementById('val-barcount').textContent = params.barCount;
   barHeights.fill(0);
   barsGradH = -1;
+  markModified();
+});
+
+document.getElementById('ctrl-bloom').addEventListener('input', e => {
+  params.bloomIntensity = parseInt(e.target.value, 10);
+  document.getElementById('val-bloom').textContent = params.bloomIntensity === 0 ? 'Off' : params.bloomIntensity;
   markModified();
 });
 
