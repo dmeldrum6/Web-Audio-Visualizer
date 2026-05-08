@@ -1700,9 +1700,10 @@ const params = {
   overlayOpacity:    1.0,
   overlayStyle:      'scroll',
   /* background image */
-  bgOpacity: 1.0,
-  bgBlend:   'normal',
-  bgFit:     'cover',
+  bgOpacity:  1.0,
+  bgBlend:    'normal',
+  bgFit:      'cover',
+  bgGradient: false,
   /* bloom/glow */
   bloomIntensity: 0,
 };
@@ -2474,9 +2475,75 @@ function clearBackground() {
 }
 
 function updateFitButtons(fit) {
-  document.querySelectorAll('.fit-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.fit === fit);
+  document.querySelectorAll('.fit-btn[data-fit]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.fit === fit && !params.bgGradient);
   });
+  const gradBtn = document.getElementById('btn-bg-gradient');
+  if (gradBtn) gradBtn.classList.toggle('active', params.bgGradient);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   GRADIENT BACKGROUND
+═══════════════════════════════════════════════════════════════ */
+function hexToHsl(hex) {
+  let [r, g2, b] = hexToRgb(hex);
+  r /= 255; g2 /= 255; b /= 255;
+  const max = Math.max(r, g2, b), min = Math.min(r, g2, b);
+  const l   = (max + min) / 2;
+  if (max === min) return [0, 0, l * 100];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if      (max === r)  h = ((g2 - b) / d + (g2 < b ? 6 : 0)) / 6;
+  else if (max === g2) h = ((b  - r) / d + 2) / 6;
+  else                 h = ((r  - g2) / d + 4) / 6;
+  return [h * 360, s * 100, l * 100];
+}
+
+let gradHue        = 0;
+let gradHueBase    = hexToHsl(THEMES[0].accentColor)[0];
+let gradBassSmooth = 0;
+let gradMidSmooth  = 0;
+
+function _gradBinRms(freq, lo, hi) {
+  if (!freq || freq.length <= lo) return 0;
+  const end = Math.min(hi, freq.length);
+  let sum = 0;
+  for (let i = lo; i < end; i++) { const v = freq[i] / 255; sum += v * v; }
+  return Math.sqrt(sum / (end - lo));
+}
+
+function drawGradientBackground(W, H, freq) {
+  const bassRms = _gradBinRms(freq, 0, 11);
+  const midRms  = _gradBinRms(freq, 20, 61);
+
+  gradBassSmooth = gradBassSmooth * 0.92 + bassRms * 0.08;
+  gradMidSmooth  = gradMidSmooth  * 0.88 + midRms  * 0.12;
+
+  /* Hue drift: 0.05°/frame at idle, up to ~0.55°/frame with bass */
+  gradHue = (gradHue + 0.05 + gradBassSmooth * 0.5) % 360;
+  const hue = (gradHueBase + gradHue) % 360;
+
+  /* Saturation: 10–75% driven by smoothed mid energy */
+  const energy = Math.min(1, gradMidSmooth * 5);
+  const sat    = 10 + 65 * energy;
+
+  /* Lightness: 5–12% */
+  const lit = 5 + 7 * energy;
+
+  const cx = W / 2;
+  const cy = H / 2;
+  const r  = Math.sqrt(W * W + H * H) * 0.6;
+
+  const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+  grad.addColorStop(0, `hsl(${hue.toFixed(1)},${sat.toFixed(1)}%,${lit.toFixed(1)}%)`);
+  grad.addColorStop(1, `hsl(${hue.toFixed(1)},10%,3%)`);
+
+  g.globalAlpha              = 1;
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
 }
 
 
@@ -2745,15 +2812,19 @@ function render(freq, time) {
     g.fillRect(0, 0, W, H);
   }
 
-  /* 2. Background image (if loaded) */
-  drawBackground(W, H);
+  /* 2. Background — gradient or image */
+  if (params.bgGradient) {
+    drawGradientBackground(W, H, freq);
+  } else {
+    drawBackground(W, H);
+  }
 
   /* 3. Reset compositing before visualizer pass */
   g.globalCompositeOperation = 'source-over';
   g.globalAlpha = 1;
 
-  /* 4. Visualizer — fill opacity reduced 20% when background is active */
-  const vizFillAlpha = bgState.image ? 0.8 : 1.0;
+  /* 4. Visualizer — fill opacity reduced 20% when any background is active */
+  const vizFillAlpha = (params.bgGradient || bgState.image) ? 0.8 : 1.0;
   switch (currentMode) {
     case 'bars':        renderBars(freq, W, H, vizFillAlpha);        break;
     case 'waveform':    renderWaveform(time, W, H, vizFillAlpha);    break;
@@ -2822,6 +2893,7 @@ function applyTheme(index) {
   THEME.highlight = t.highlightColor;
   THEME.mid       = t.midColor;
   THEME.waveRGB   = hexToRgb(t.highlightColor);
+  gradHueBase     = hexToHsl(t.accentColor)[0];
 
   document.documentElement.style.setProperty('--accent-color', t.highlightColor);
 
@@ -2983,9 +3055,10 @@ function applyPreset(preset, writeToHash = true) {
   resetOverlayTimer();
 
   /* background */
-  params.bgOpacity = preset.bgOpacity ?? 1.0;
-  params.bgBlend   = preset.bgBlend   ?? 'normal';
-  params.bgFit     = preset.bgFit     ?? 'cover';
+  params.bgOpacity  = preset.bgOpacity  ?? 1.0;
+  params.bgBlend    = preset.bgBlend    ?? 'normal';
+  params.bgFit      = preset.bgFit      ?? 'cover';
+  params.bgGradient = preset.bgGradient ?? false;
 
   /* bloom */
   params.bloomIntensity = preset.bloomIntensity ?? 0;
@@ -3109,9 +3182,10 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     overlayColor:      params.overlayColor,
     overlayOpacity:    params.overlayOpacity,
     overlayStyle:      params.overlayStyle,
-    bgOpacity: params.bgOpacity,
-    bgBlend:   params.bgBlend,
-    bgFit:     params.bgFit,
+    bgOpacity:  params.bgOpacity,
+    bgBlend:    params.bgBlend,
+    bgFit:      params.bgFit,
+    bgGradient: params.bgGradient,
     bloomIntensity: params.bloomIntensity,
   };
 
@@ -4049,16 +4123,41 @@ const FIT_DEFS = [
   const grid = document.getElementById('fit-btn-grid');
   FIT_DEFS.forEach(def => {
     const btn = document.createElement('button');
-    btn.className   = 'fit-btn' + (def.id === params.bgFit ? ' active' : '');
+    btn.className   = 'fit-btn' + (def.id === params.bgFit && !params.bgGradient ? ' active' : '');
     btn.dataset.fit = def.id;
     btn.innerHTML   = def.icon + `<span>${def.label}</span>`;
     btn.addEventListener('click', () => {
-      params.bgFit = def.id;
+      params.bgFit      = def.id;
+      params.bgGradient = false;
       updateFitButtons(def.id);
       markModified();
     });
     grid.appendChild(btn);
   });
+
+  /* Gradient button — full-width, below the four fit buttons */
+  const gradBtn = document.createElement('button');
+  gradBtn.id        = 'btn-bg-gradient';
+  gradBtn.className = 'fit-btn' + (params.bgGradient ? ' active' : '');
+  gradBtn.style.cssText = 'grid-column:1/-1;flex-direction:row;gap:6px;padding:7px 10px;justify-content:center';
+  gradBtn.innerHTML =
+    `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="rbg-gi" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="currentColor" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="currentColor" stop-opacity="0.1"/>
+        </radialGradient>
+      </defs>
+      <circle cx="8" cy="8" r="6.5" fill="url(#rbg-gi)" stroke="currentColor" stroke-width="1"/>
+      <circle cx="8" cy="8" r="2"   fill="currentColor" opacity="0.75"/>
+    </svg>
+    <span>Gradient</span>`;
+  gradBtn.addEventListener('click', () => {
+    params.bgGradient = !params.bgGradient;
+    updateFitButtons(params.bgFit);
+    markModified();
+  });
+  grid.appendChild(gradBtn);
 })();
 
 document.getElementById('btn-load-bg').addEventListener('click', () => {
