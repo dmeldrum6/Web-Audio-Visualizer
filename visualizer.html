@@ -1140,6 +1140,28 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
   font-style: italic;
   line-height: 1.4;
 }
+
+/* ── Beat indicator dot ── */
+#beat-dot {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  opacity: 0.18;
+  flex-shrink: 0;
+  transition: opacity 0.05s;
+}
+
+@keyframes beatDotPulse {
+  0%   { opacity: 1;    background: #ffffff; }
+  40%  { opacity: 0.85; background: var(--accent-color); }
+  100% { opacity: 0.18; background: var(--accent-color); }
+}
+
+#beat-dot.beat {
+  animation: beatDotPulse 0.2s ease-out forwards;
+}
 </style>
 </head>
 <body>
@@ -1523,6 +1545,37 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           </div>
 
           <p class="bg-note">Images are saved locally only and not included in shared links</p>
+
+        </div>
+      </div>
+
+      <!-- Beat FX section (collapsible) -->
+      <div class="ctrl-section collapsed" id="section-beat">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Beat FX</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div id="beat-dot"></div>
+            <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+        <div class="ctrl-section-body">
+
+          <div class="toggle-row">
+            <span class="ctrl-label">Enable</span>
+            <button class="toggle-btn active" id="ctrl-beat-enabled" aria-label="Toggle beat detection"></button>
+          </div>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Sensitivity</span>
+              <span class="ctrl-value" id="val-beat-sensitivity">1.40</span>
+            </div>
+            <input type="range" id="ctrl-beat-sensitivity" min="1.1" max="2.0" step="0.05" value="1.4">
+          </div>
 
         </div>
       </div>
@@ -1962,6 +2015,91 @@ const AudioEngine = (() => {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   BEAT DETECTOR
+═══════════════════════════════════════════════════════════════ */
+const BeatDetector = (() => {
+  const HISTORY  = 40;
+  const COOLDOWN = 200; /* ms between triggers */
+
+  let _enabled    = true;
+  let _multiplier = 1.4;
+
+  /* Bass state — bins 0–10 (sub-bass / bass) */
+  const _bassHist = new Float32Array(HISTORY);
+  let _bassIdx    = 0;
+  let _bassSum    = 0;
+  let _bassFill   = 0;
+  let _lastBeat   = -Infinity;
+  let _isBeat     = false;
+  let _bassNow    = 0;  /* current frame RMS */
+  let _bassAvg    = 0;  /* rolling average RMS */
+
+  /* Treble state — top quarter of FFT bins */
+  const _trebHist = new Float32Array(HISTORY);
+  let _trebIdx    = 0;
+  let _trebSum    = 0;
+  let _trebFill   = 0;
+  let _lastHit    = -Infinity;
+  let _isHit      = false;
+
+  function _binRMS(freq, lo, hi) {
+    let sum = 0;
+    for (let i = lo; i < hi; i++) { const v = freq[i] / 255; sum += v * v; }
+    return Math.sqrt(sum / (hi - lo));
+  }
+
+  function update(freq) {
+    _isBeat = false;
+    _isHit  = false;
+    if (!_enabled || !freq || freq.length < 12) return;
+
+    const now      = performance.now();
+    const binCount = freq.length;
+
+    /* ── Bass ── */
+    const bass  = _binRMS(freq, 0, 11);
+    _bassNow    = bass;
+    _bassSum   -= _bassHist[_bassIdx];
+    _bassHist[_bassIdx] = bass;
+    _bassSum   += bass;
+    _bassIdx    = (_bassIdx + 1) % HISTORY;
+    if (_bassFill < HISTORY) _bassFill++;
+    _bassAvg    = _bassSum / _bassFill;
+
+    if (_bassAvg > 0 && bass > _bassAvg * _multiplier && now - _lastBeat >= COOLDOWN) {
+      _isBeat   = true;
+      _lastBeat = now;
+    }
+
+    /* ── Treble ── */
+    const trebLo = Math.floor(binCount * 0.75);
+    const treb   = _binRMS(freq, trebLo, binCount);
+    _trebSum    -= _trebHist[_trebIdx];
+    _trebHist[_trebIdx] = treb;
+    _trebSum    += treb;
+    _trebIdx     = (_trebIdx + 1) % HISTORY;
+    if (_trebFill < HISTORY) _trebFill++;
+    const trebAvg = _trebSum / _trebFill;
+
+    if (trebAvg > 0 && treb > trebAvg * _multiplier && now - _lastHit >= COOLDOWN) {
+      _isHit   = true;
+      _lastHit = now;
+    }
+  }
+
+  return {
+    update,
+    isBeat()       { return _isBeat; },
+    isHit()        { return _isHit; },
+    beatEnergy()   { return _bassAvg > 0 ? Math.min(1, _bassNow / (_bassAvg * _multiplier)) : 0; },
+    setEnabled(v)  { _enabled = !!v; if (!v) { _isBeat = false; _isHit = false; } },
+    setMultiplier(v) { _multiplier = v; },
+    isEnabled()    { return _enabled; },
+  };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
    CANVAS + RESIZE
 ═══════════════════════════════════════════════════════════════ */
 const canvasWrap = document.getElementById('canvas-wrap');
@@ -2011,6 +2149,9 @@ resizeCanvas();
    VISUALIZER STATE
 ═══════════════════════════════════════════════════════════════ */
 let currentMode = 'bars';
+
+/* Beat flash — timestamp of the last detected beat; -Infinity = no flash active */
+let beatFlashStart = -Infinity;
 
 const MODES = ['bars', 'waveform', 'spectrogram'];
 
@@ -2619,6 +2760,15 @@ function render(freq, time) {
       modeTransition = null;
     }
   }
+
+  /* Beat flash — brief white overlay lasting 150 ms */
+  if (BeatDetector.isEnabled()) {
+    const bfElapsed = performance.now() - beatFlashStart;
+    if (bfElapsed >= 0 && bfElapsed < 150) {
+      g.fillStyle = `rgba(255,255,255,${0.06 * (1 - bfElapsed / 150)})`;
+      g.fillRect(0, 0, W, H);
+    }
+  }
 }
 
 
@@ -3057,6 +3207,12 @@ function loop(now) {
 
   const freq = AudioEngine.getFrequencyData();
   const time = AudioEngine.getTimeDomainData();
+
+  BeatDetector.update(freq);
+  if (BeatDetector.isBeat()) {
+    beatFlashStart = performance.now();
+    flashBeatDot();
+  }
 
   render(freq, time);
 
@@ -3880,6 +4036,31 @@ document.getElementById('ctrl-bg-opacity').addEventListener('input', e => {
 document.getElementById('ctrl-bg-blend').addEventListener('change', e => {
   params.bgBlend = e.target.value;
   markModified();
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   BEAT DETECTOR — UI bindings
+═══════════════════════════════════════════════════════════════ */
+const beatDotEl = document.getElementById('beat-dot');
+
+function flashBeatDot() {
+  beatDotEl.classList.remove('beat');
+  void beatDotEl.offsetWidth; /* restart animation */
+  beatDotEl.classList.add('beat');
+}
+
+document.getElementById('ctrl-beat-enabled').addEventListener('click', e => {
+  const on = !BeatDetector.isEnabled();
+  BeatDetector.setEnabled(on);
+  e.currentTarget.classList.toggle('active', on);
+  if (!on) beatFlashStart = -Infinity; /* cancel any live flash */
+});
+
+document.getElementById('ctrl-beat-sensitivity').addEventListener('input', e => {
+  const val = parseFloat(e.target.value);
+  document.getElementById('val-beat-sensitivity').textContent = val.toFixed(2);
+  BeatDetector.setMultiplier(val);
 });
 
 
