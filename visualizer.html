@@ -1291,6 +1291,7 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           <button class="btn active" id="btn-mode-bars">Bars</button>
           <button class="btn" id="btn-mode-waveform">Waveform</button>
           <button class="btn" id="btn-mode-spectrogram">Spectrogram</button>
+          <button class="btn" id="btn-mode-radial">Radial</button>
         </div>
       </div>
 
@@ -2171,7 +2172,7 @@ let currentMode = 'bars';
 /* Beat flash — timestamp of the last detected beat; -Infinity = no flash active */
 let beatFlashStart = -Infinity;
 
-const MODES = ['bars', 'waveform', 'spectrogram'];
+const MODES = ['bars', 'waveform', 'spectrogram', 'radial'];
 
 const barHeights = new Float32Array(256);
 
@@ -2183,6 +2184,9 @@ let spectroCtx2      = null;
 let spectroStripData = null;
 let spectroSW        = 0;
 let spectroSH        = 0;
+
+let radialAngle    = 0;
+let radialBeatTime = -Infinity;
 
 const heatR = new Uint8Array(256);
 const heatG = new Uint8Array(256);
@@ -2341,6 +2345,94 @@ function renderSpectrogram(freq, W, H, vizFillAlpha = 1) {
   g.globalAlpha = vizFillAlpha;
   g.drawImage(spectroCanvas, 0, 0, W, H);
   g.globalAlpha = 1;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RADIAL RENDERER
+═══════════════════════════════════════════════════════════════ */
+function renderRadial(freq, W, H, vizFillAlpha = 1) {
+  if (!freq) return;
+
+  const cx      = W / 2;
+  const cy      = H / 2;
+  const minDim  = Math.min(W, H);
+  const innerBase = minDim * 0.18;
+  const outerMax  = minDim * 0.46;
+
+  /* Beat pulse: scale inner radius up 8%, lerp back over 200 ms */
+  const beatElapsed = performance.now() - radialBeatTime;
+  const beatScale   = beatElapsed < 200
+    ? 1.0 + 0.08 * (1 - beatElapsed / 200)
+    : 1.0;
+  const innerRadius = innerBase * beatScale;
+
+  /* Slow per-frame rotation */
+  radialAngle += 0.001 * params.motionAmount;
+
+  const barCount = params.barCount;
+  const binCount = freq.length;
+  const smoothK  = 0.08 + 0.14 * params.motionAmount;
+
+  /* ── Draw radiating bars ── */
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(radialAngle);
+  g.globalAlpha = vizFillAlpha;
+
+  for (let i = 0; i < barCount; i++) {
+    const srcI = (params.mirror && i >= barCount / 2) ? barCount - 1 - i : i;
+
+    const lo = Math.floor(srcI       * binCount / barCount);
+    const hi = Math.floor((srcI + 1) * binCount / barCount);
+    let sum = 0;
+    for (let b = lo; b < hi; b++) sum += freq[b];
+    const newVal = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
+
+    barHeights[i] += (newVal - barHeights[i]) * smoothK;
+    const barH = barHeights[i] * (outerMax - innerRadius);
+    if (barH <= 0.5) continue;
+
+    const angle    = (i / barCount) * Math.PI * 2;
+    const cv       = Math.min(255, Math.max(0, Math.floor(barHeights[i] * 255)));
+    /* bar width: fraction of the circumference at innerRadius */
+    const barWidth = Math.max(1, (2 * Math.PI * innerRadius / barCount) * 0.75);
+
+    g.save();
+    g.rotate(angle);
+    /* After rotate, +x axis points outward at 'angle'; draw bar along +x */
+    g.fillStyle = `rgb(${heatR[cv]},${heatG[cv]},${heatB[cv]})`;
+    g.fillRect(innerRadius, -barWidth / 2, barH, barWidth);
+    g.restore();
+  }
+
+  g.globalAlpha = 1;
+  g.restore();
+
+  /* ── Centre well ── */
+  /* Fill with theme bg colour first */
+  g.beginPath();
+  g.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+  g.fillStyle = THEME.bgColor;
+  g.fill();
+
+  /* If a background image is loaded, clip-draw it inside the circle */
+  if (bgState.image) {
+    const img   = bgState.image;
+    const d     = innerRadius * 2;
+    const scale = Math.max(d / img.naturalWidth, d / img.naturalHeight);
+    const dw    = img.naturalWidth  * scale;
+    const dh    = img.naturalHeight * scale;
+
+    g.save();
+    g.beginPath();
+    g.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+    g.clip();
+    g.globalAlpha = params.bgOpacity;
+    g.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+    g.globalAlpha = 1;
+    g.restore();
+  }
 }
 
 
@@ -2781,6 +2873,7 @@ function switchMode(mode) {
   document.getElementById('btn-mode-bars').classList.toggle('active',        mode === 'bars');
   document.getElementById('btn-mode-waveform').classList.toggle('active',    mode === 'waveform');
   document.getElementById('btn-mode-spectrogram').classList.toggle('active', mode === 'spectrogram');
+  document.getElementById('btn-mode-radial').classList.toggle('active',      mode === 'radial');
 }
 
 function cycleMode() {
@@ -2829,6 +2922,7 @@ function render(freq, time) {
     case 'bars':        renderBars(freq, W, H, vizFillAlpha);        break;
     case 'waveform':    renderWaveform(time, W, H, vizFillAlpha);    break;
     case 'spectrogram': renderSpectrogram(freq, W, H, vizFillAlpha); break;
+    case 'radial':      renderRadial(freq, W, H, vizFillAlpha);      break;
   }
 
   /* 5. Vignette */
@@ -2948,6 +3042,8 @@ const BUILT_IN_PRESETS = [
   { version:1, name:'Minimal Wave',  mode:'waveform',    fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.3, mirror:false, fill:false, barCount:128, theme:4, themeName:'Monochrome' },
   { version:1, name:'Forest Pulse',  mode:'bars',        fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:true,  fill:true,  barCount:128, theme:2, themeName:'Forest'     },
   { version:1, name:'Neon Storm',    mode:'bars',        fftSize:8192,  smoothing:0.65, gain:1.0, motionAmount:1.0, mirror:false, fill:true,  barCount:256, theme:3, themeName:'Neon'       },
+  { version:1, name:'Radial Pulse',  mode:'radial',      fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:0, themeName:'Midnight'  },
+  { version:1, name:'Radial Mirror', mode:'radial',      fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.6, mirror:true,  fill:true,  barCount:128, theme:3, themeName:'Neon'      },
 ];
 
 
@@ -3330,6 +3426,7 @@ function loop(now) {
   BeatDetector.update(freq);
   if (BeatDetector.isBeat()) {
     beatFlashStart = performance.now();
+    radialBeatTime = performance.now();
     flashBeatDot();
   }
 
@@ -3746,6 +3843,10 @@ document.getElementById('btn-mode-waveform').addEventListener('click', () => {
 });
 document.getElementById('btn-mode-spectrogram').addEventListener('click', () => {
   switchModeAnimated('spectrogram');
+  markModified();
+});
+document.getElementById('btn-mode-radial').addEventListener('click', () => {
+  switchModeAnimated('radial');
   markModified();
 });
 
