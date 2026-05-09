@@ -1,6 +1,6 @@
 # Web-Audio-Visualizer
 
-A browser-based audio visualizer that reacts in real time to your microphone or local audio files. Create live visuals, record clips for social media, or use it as an ambient display — all from a single HTML file with no install required.
+A browser-based audio visualizer that reacts in real time to your microphone or local audio files. Create live visuals, record clips for YouTube and social media, or use it as an ambient display — all from a single HTML file with no install required.
 
 <img width="1916" height="908" alt="image" src="https://github.com/user-attachments/assets/6fd87d62-e433-467e-8fd5-316090911c64" />
 *Bars mode with the Midnight theme*
@@ -9,14 +9,18 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 
 ## Features
 
-- **Three visualizer modes** — spectrum bars, oscilloscope waveform, and scrolling spectrogram
+- **Eight visualizer modes** — spectrum bars, oscilloscope waveform, scrolling spectrogram, radial bars, particle system, frequency rings, Lissajous scope, and 3D terrain
 - **Two audio inputs** — microphone or local audio file
 - **Full file playback controls** — play, pause, stop, seek, loop, and variable playback speed
-- **Text overlay system** — six animation styles composited directly onto the canvas
+- **Beat detection** — real-time onset detection drives flash effects, particle bursts, and ring ripples
+- **Bloom / glow effect** — post-processing glow composited over the visualizer each frame
+- **Motion trail** — persistent canvas decay for ghost-echo and smear effects
+- **Text overlay system** — seven animation styles composited directly onto the canvas, including a broadcast-style lower third
+- **Audio-reactive background gradient** — procedural background that shifts hue and saturation with the music
+- **YouTube Mode** — 16:9 canvas lock, 12 Mbps VP9 recording, and a canvas-rendered progress bar
 - **Theme engine** — six built-in color themes, applied instantly
 - **Preset system** — eight built-in presets plus save/load via localStorage
 - **URL sharing** — encode any preset as a shareable link via URL hash
-- **1080p WebM recording** — canvas + audio mixed and exported directly from the browser
 - **PWA support** — installable and works offline
 - **Single file** — no build step, no dependencies, no server required
 
@@ -40,7 +44,7 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 
 The interface has three regions:
 
-- **Top bar** — app title, loaded file name, and the Record button
+- **Top bar** — app title, loaded file name, YouTube Mode toggle, and the Record button
 - **Sidebar** — all controls, collapsible by section
 - **Canvas** — the visualizer output, fills the remaining space and resizes with the window
 
@@ -85,22 +89,36 @@ The playback bar appears automatically when a file is loaded. It is hidden durin
 Switch modes from the sidebar or press **M** to cycle through them. Switching fades the canvas to black before the new mode starts.
 
 ### Bars
-<img width="1658" height="779" alt="image" src="https://github.com/user-attachments/assets/9f43263c-9e54-43f4-99e8-7ec6b0572761" />
-*Spectrum bars with mirror and the Neon theme*
 
 Frequency spectrum rendered as vertical bars growing from the center. Supports mirror mode (left/right symmetry) and a configurable bar count.
 
 ### Waveform
-<img width="1234" height="662" alt="image" src="https://github.com/user-attachments/assets/a0386db3-6acd-447f-8d93-c2d18b395ae9" />
-*Oscilloscope waveform with fill enabled*
 
 Time-domain signal drawn as a continuous polyline. Optional area fill between the waveform and center line.
 
 ### Spectrogram
-<img width="1236" height="663" alt="image" src="https://github.com/user-attachments/assets/9fcb93dc-85a2-42f0-9bab-82ec7eb95cec" />
-*Scrolling spectrogram with the Ember theme*
 
 Frequency content scrolls left over time. Color maps dB values through a heatmap palette (black → purple → red → yellow → white). Useful for spotting pitch, harmonics, and transients.
+
+### Radial
+
+Frequency bars arranged in a circle, radiating outward from a central disc. If a background image is loaded it is clipped into the centre circle. Supports mirror symmetry and a slow canvas rotation that scales with the Motion Amount control. The inner radius pulses outward briefly on each detected beat.
+
+### Particles
+
+A physics-based particle system driven by audio energy. Particles drift outward from the canvas centre with velocity proportional to the current RMS level. Bass beats trigger large bursts from the centre; high-frequency hits scatter smaller particles inward from the edges. A subtle waveform line runs behind the particles so there is always something visible during quiet passages. Particle density is adjustable via the **Density** slider.
+
+### Rings
+
+Six concentric rings, each mapped to a distinct frequency band (sub-bass through treble). Ring stroke width swells with band energy. Ghost rings at fixed radii remain visible during silence so the structure is always readable. Beat events emit outward ripple circles that expand and fade over ~600 ms.
+
+### Scope
+
+A Lissajous / oscilloscope display. The first and second halves of the time-domain buffer are plotted against each other on the X and Y axes, producing figures that evolve as the music changes. A persistent trail of the last eight frames gives a glowing comet-tail effect. Toggle **Mono phase delay** in the sidebar to switch between split-buffer and delay-offset plotting — the delay mode works well for mono files.
+
+### Terrain
+
+A scrolling 3D-perspective frequency landscape rendered with Canvas 2D. Each animation frame writes the current frequency data into a 48-row circular buffer; rows are projected back to a vanishing point, producing the appearance of flying over the music. Peak height is color-mapped through the heat palette. Faint perspective grid lines reinforce the 3D effect. The **Speed** slider controls how quickly new rows scroll into view.
 
 ---
 
@@ -119,9 +137,36 @@ Frequency content scrolls left over time. Color maps dB values through a heatmap
 | Control | Description |
 |---|---|
 | Motion amount | Scales all animation speeds and effect intensities |
-| Mirror | Bars mode: reflects the spectrum left/right |
-| Fill | Waveform mode: toggles the area fill |
-| Bar count | Bars mode: 32 – 256 bars |
+| Mirror | Bars / Radial: reflects the spectrum symmetrically |
+| Fill | Waveform: toggles the area fill |
+| Bar count | Bars / Radial / Terrain: 32 – 256 bars |
+| Trail | Persistent canvas decay. 0 = off (standard clear each frame); higher values leave ghost echoes of previous frames |
+| Bloom | Post-processing glow intensity. 0 = off; higher values composite a blurred copy of the frame back with additive blending. Glow intensity rises briefly on detected beats |
+| Density | Particles mode: maximum particle pool size, 50 – 400 |
+
+---
+
+## Beat Detection
+
+The beat detector monitors low-frequency and high-frequency energy each frame and fires discrete events when a significant spike is detected above the rolling average.
+
+| Control | Description |
+|---|---|
+| Enable toggle | Turns beat detection on or off globally |
+| Sensitivity | Detection threshold multiplier, 1.1 (fires on small spikes) – 2.0 (only hard hits). Default 1.4 |
+| Beat indicator | A small circle in the sidebar that flashes on each detected bass beat |
+
+When a bass beat fires, a brief white flash (≈150 ms, low opacity) is composited over the canvas. Beat events also trigger: radial inner-radius pulse, particle bursts, and ring ripples.
+
+---
+
+## Background
+
+| Option | Description |
+|---|---|
+| Image | Upload any image; set fit (cover / contain / stretch / tile), opacity, and blend mode |
+| Gradient | Procedural audio-reactive radial gradient. Hue drifts slowly, driven by bass energy; saturation rises with mid-frequency energy; brightness stays low so the visualizer remains readable over it. Animates even when paused |
+| Solid | Plain background color from the active theme |
 
 ---
 
@@ -142,7 +187,7 @@ Click any swatch to apply a theme instantly. The active theme is shown with a wh
 
 ## Presets
 
-Presets capture the full visualizer state: mode, analyzer settings, theme, and text overlay.
+Presets capture the full visualizer state: mode, analyzer settings, visual controls, theme, beat detection settings, and text overlay.
 
 ### Built-in presets (keyboard: `1` – `8`)
 
@@ -166,7 +211,6 @@ Presets capture the full visualizer state: mode, analyzer settings, theme, and t
 ---
 
 ## Text Overlay
-<img width="1228" height="655" alt="image" src="https://github.com/user-attachments/assets/d312f89d-de23-4f76-942e-f95c5e3faa0f" />
 
 Text is drawn directly onto the visualizer canvas each frame, so it is automatically included in recordings.
 
@@ -174,13 +218,16 @@ Text is drawn directly onto the visualizer canvas each frame, so it is automatic
 
 | Option | Description |
 |---|---|
-| Text | Up to 80 characters |
+| Text | Up to 80 characters (used as the song title in Lower Third style) |
+| Subtitle | Secondary line shown beneath the title in Lower Third style (artist name, genre, etc.) |
 | Enable toggle | Show or hide the overlay without clearing the text |
 | Font size | 24 – 120px |
 | Font family | Sans-serif, Serif, Monospace, Impact, Cursive |
 | Color | Native color picker |
 | Opacity | 0.1 – 1.0 |
-| Style | One of six animation styles |
+| Style | One of seven animation styles |
+| Duration | Lower Third only: seconds before the bar slides back out. 0 = always visible |
+| Show Lower Third | Triggers the slide-in animation manually — useful for timing it after recording starts |
 
 ### Animation styles
 
@@ -192,6 +239,7 @@ Text is drawn directly onto the visualizer canvas each frame, so it is automatic
 | **Glitch** | Periodic color offsets, horizontal slices, and random character substitutions |
 | **Wave** | Each character bobs on an individual sine wave, phase-offset from its neighbors |
 | **Spotlight** | Text is stationary; a radial light source drifts in a figure-eight path across it |
+| **Lower Third** | A broadcast-style bar at the bottom of the canvas. A solid accent-colored stripe runs on the left edge; the Text field renders as a large title and the Subtitle field renders smaller beneath it in the accent color. The bar slides up from below on trigger and optionally auto-hides after the set Duration |
 
 Text overlay settings are saved as part of presets and encoded in shared URLs.
 
@@ -201,12 +249,40 @@ Text overlay settings are saved as part of presets and encoded in shared URLs.
 
 Click **Record** in the top bar to begin. The canvas and audio are mixed together into a single WebM file.
 
-- Format: WebM (VP9 + Opus)
-- Max resolution: 1080p at 30fps
+- Format: WebM (VP9 + Opus), falling back to VP8 if VP9 is unavailable
+- Standard resolution: up to 1080p at 30 fps, ~5 Mbps
+- YouTube Mode resolution: 1920 × 1080 at 12 Mbps VP9 — see below
 - Max duration: 5 minutes (auto-stops at 5:00 with a warning at 4:50)
 - Output: auto-downloaded as `visualizer-{timestamp}.webm`
 
 > **Safari:** MediaRecorder support is limited. Recording is available in Chrome and Edge. Safari users will see a notification with instructions for screen capture instead.
+
+---
+
+## YouTube Mode
+
+Click **YT 1080p** in the top bar to enable YouTube Mode before recording.
+
+| Behaviour | Detail |
+|---|---|
+| Canvas aspect ratio | Locked to 16:9. If your monitor is not 16:9 the canvas scales down with black bars filling the remainder |
+| Internal resolution | Always 1920 × 1080, regardless of window size |
+| Recording bitrate | 12 Mbps VP9 (VP8 fallback) — high enough that YouTube's re-encode retains quality |
+| Composition guide | A faint dashed border shows the exact 16:9 capture area while YouTube Mode is active. The guide is hidden during recording |
+
+YouTube Mode is designed to be paired with the **Lower Third** overlay and the **Progress Bar** for a complete music-video presentation.
+
+---
+
+## Progress Bar Overlay
+
+Enable **Progress Bar** in the sidebar to draw a playback timeline directly onto the canvas (and therefore into recordings).
+
+- A 4 px bar runs across the very top of the canvas, filled in the current theme accent color
+- A faint full-width track shows the total duration at 15% opacity behind it
+- A small glowing dot marks the playhead
+- Elapsed and remaining timestamps (MM:SS) appear at the top corners in a small monospace font
+- Only visible when a file is loaded; hidden during mic input
 
 ---
 
@@ -251,9 +327,11 @@ The app is a single self-contained HTML file. No framework, no build step, no ne
 ```
 visualizer.html
 ├── AudioEngine          Web Audio API graph (source → gain → analyser → compressor → destination)
+├── BeatDetector         Per-frame energy spike detection for bass and treble bands
 ├── Render loop          requestAnimationFrame at 60fps; typed arrays reused each frame
-├── Visualizers          Canvas 2D: Bars, Waveform, Spectrogram
-├── TextOverlay          Six animation styles drawn onto the canvas post-visualizer
+├── Visualizers          Canvas 2D: Bars, Waveform, Spectrogram, Radial, Particles, Rings, Scope, Terrain
+├── PostProcessing       Bloom (off-screen canvas + additive blend), motion trail (persistent clear)
+├── TextOverlay          Seven animation styles drawn onto the canvas post-visualizer
 ├── ThemeEngine          Six themes; applies to all canvas draw calls
 ├── PresetSystem         JSON schema; localStorage; URL hash encode/decode
 └── Recorder             canvas.captureStream + MediaStreamDestination → MediaRecorder → WebM
@@ -264,19 +342,24 @@ visualizer.html
 ```
 MediaStream (mic)  ─┐
                     ├─→ GainNode → AnalyserNode → DynamicsCompressor → AudioContext.destination
-BufferSource (file)─┘                │
-                                     └─→ MediaStreamDestination (for recording)
+BufferSource (file)─┘       │            │
+                            │            └─→ BeatDetector (reads frequency + time-domain data)
+                            └─→ MediaStreamDestination (for recording)
 ```
 
 ---
 
-## Suggested Workflow for Social Clips
+## Suggested Workflow for YouTube Music Videos
 
-1. Load an audio file and use the **playback controls** to find the section you want
-2. Pick a visualizer mode and preset that suits the track's energy
-3. Add a **text overlay** (artist name, track title, or lyric snippet)
-4. Hit **Record**, let it run for 15–60 seconds, then stop
-5. The WebM downloads automatically — ready to upload or trim in your editor
+1. Load an audio file and use the **playback controls** to find your start point
+2. Enable **YouTube Mode** (YT 1080p) in the top bar to lock the 16:9 frame
+3. Pick a visualizer mode — **Radial** or **Particles** work well for most music
+4. Set a **theme** and optionally enable the **Gradient** background for a fully reactive look
+5. Add a **Lower Third** overlay with the song title and artist name; adjust Duration or leave it always visible
+6. Enable the **Progress Bar** overlay so viewers can see where they are in the track
+7. Dial in **Bloom** and **Trail** to taste — a little of both goes a long way
+8. Hit **Record**, let the track play from the beginning, then stop
+9. The WebM downloads automatically — ready to upload directly to YouTube or trim in your editor
 
 ---
 
