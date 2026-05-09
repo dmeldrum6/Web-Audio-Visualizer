@@ -1478,6 +1478,11 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <input type="range" id="ctrl-bloom" min="0" max="5" step="1" value="0">
           </div>
 
+          <div class="toggle-row">
+            <span class="ctrl-label">Progress Bar</span>
+            <button class="toggle-btn" id="ctrl-progress-bar" aria-label="Toggle progress bar"></button>
+          </div>
+
         </div>
       </div>
 
@@ -1834,6 +1839,8 @@ const params = {
   scopeMonoDelay: false,
   /* terrain */
   terrainSpeed: 1,
+  /* progress bar */
+  progressBar: false,
 };
 
 
@@ -3518,6 +3525,68 @@ function cycleMode() {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════════════════════════ */
+function drawProgressBar(W, H) {
+  if (!params.progressBar) return;
+  if (AudioEngine.getSourceType() !== 'file') return;
+  const dur = AudioEngine.fileGetDuration();
+  if (dur <= 0) return;
+
+  const pos      = AudioEngine.fileGetOffset();
+  const progress = Math.min(1, pos / dur);
+  const fillW    = progress * W;
+
+  g.save();
+  g.globalCompositeOperation = 'source-over';
+
+  /* Background track — 15% opacity */
+  g.globalAlpha = 0.15;
+  g.fillStyle   = THEME.accent;
+  g.fillRect(0, 0, W, 4);
+
+  /* Filled portion — full opacity */
+  if (fillW > 0) {
+    g.globalAlpha = 1;
+    g.fillStyle   = THEME.accent;
+    g.fillRect(0, 0, fillW, 4);
+
+    /* Glowing dot at right edge */
+    const cx = fillW;
+    const cy = 2;
+    /* Bloom halo — radius 8, 20% opacity */
+    g.globalAlpha = 0.2;
+    g.beginPath();
+    g.arc(cx, cy, 8, 0, Math.PI * 2);
+    g.fillStyle = THEME.accent;
+    g.fill();
+    /* Opaque core — radius 4 */
+    g.globalAlpha = 1;
+    g.beginPath();
+    g.arc(cx, cy, 4, 0, Math.PI * 2);
+    g.fillStyle = THEME.accent;
+    g.fill();
+  }
+
+  /* Time labels — only when canvas is tall enough */
+  if (H > 300) {
+    const elapsed   = formatTime(pos);
+    const remaining = '-' + formatTime(dur - pos);
+    g.globalAlpha   = 0.55;
+    g.fillStyle     = '#ffffff';
+    g.font          = '11px monospace';
+    g.textBaseline  = 'top';
+    g.textAlign     = 'left';
+    g.fillText(elapsed, 6, 8);
+    g.textAlign = 'right';
+    g.fillText(remaining, W - 6, 8);
+  }
+
+  g.restore();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    RENDER  (dispatches to active mode renderer)
 ═══════════════════════════════════════════════════════════════ */
 function render(freq, time) {
@@ -3608,6 +3677,9 @@ function render(freq, time) {
     g.globalCompositeOperation = 'source-over';
     g.globalAlpha = 1;
   }
+
+  /* Progress bar — drawn last so it composites over everything */
+  drawProgressBar(W, H);
 }
 
 
@@ -3767,6 +3839,7 @@ function syncControlsToParams() {
   /* bloom */
   document.getElementById('ctrl-bloom').value = params.bloomIntensity;
   document.getElementById('val-bloom').textContent = params.bloomIntensity === 0 ? 'Off' : params.bloomIntensity;
+  document.getElementById('ctrl-progress-bar').classList.toggle('active', params.progressBar);
 
   /* particles */
   document.getElementById('ctrl-density').value = params.particleDensity;
@@ -3824,6 +3897,9 @@ function applyPreset(preset, writeToHash = true) {
 
   /* terrain */
   params.terrainSpeed = preset.terrainSpeed ?? 1;
+
+  /* progress bar */
+  params.progressBar = preset.progressBar ?? false;
 
   if (preset.name) {
     const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
@@ -3953,6 +4029,7 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     bloomIntensity:  params.bloomIntensity,
     particleDensity: params.particleDensity,
     terrainSpeed:    params.terrainSpeed,
+    progressBar:     params.progressBar,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -4712,6 +4789,12 @@ document.getElementById('ctrl-scope-mono-delay').addEventListener('click', e => 
 document.getElementById('ctrl-terrain-speed').addEventListener('input', e => {
   params.terrainSpeed = parseInt(e.target.value, 10);
   document.getElementById('val-terrain-speed').textContent = params.terrainSpeed;
+  markModified();
+});
+
+document.getElementById('ctrl-progress-bar').addEventListener('click', e => {
+  params.progressBar = !params.progressBar;
+  e.currentTarget.classList.toggle('active', params.progressBar);
   markModified();
 });
 
