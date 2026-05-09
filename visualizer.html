@@ -1295,6 +1295,7 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           <button class="btn" id="btn-mode-particles">Particles</button>
           <button class="btn" id="btn-mode-rings">Rings</button>
           <button class="btn" id="btn-mode-scope">Scope</button>
+          <button class="btn" id="btn-mode-terrain">Terrain</button>
         </div>
       </div>
 
@@ -1399,6 +1400,14 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           <div class="toggle-row" id="row-scope-mode" style="display:none">
             <span class="ctrl-label">Mono phase delay</span>
             <button class="toggle-btn" id="ctrl-scope-mono-delay" aria-label="Toggle mono phase delay"></button>
+          </div>
+
+          <div class="ctrl-row" id="row-terrain-speed" style="display:none">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Speed</span>
+              <span class="ctrl-value" id="val-terrain-speed">1</span>
+            </div>
+            <input type="range" id="ctrl-terrain-speed" min="1" max="3" step="1" value="1">
           </div>
 
           <div class="ctrl-row">
@@ -1727,6 +1736,8 @@ const params = {
   particleDensity: 200,
   /* scope */
   scopeMonoDelay: false,
+  /* terrain */
+  terrainSpeed: 1,
 };
 
 
@@ -2205,7 +2216,7 @@ let currentMode = 'bars';
 /* Beat flash — timestamp of the last detected beat; -Infinity = no flash active */
 let beatFlashStart = -Infinity;
 
-const MODES = ['bars', 'waveform', 'spectrogram', 'radial', 'particles', 'rings', 'scope'];
+const MODES = ['bars', 'waveform', 'spectrogram', 'radial', 'particles', 'rings', 'scope', 'terrain'];
 
 const barHeights = new Float32Array(256);
 
@@ -2239,6 +2250,12 @@ const ringRipples = [];                    // { r, alpha, startTime }
 /* Scope state — circular buffer of the last 8 frames of (x,y) pairs */
 const SCOPE_TRAIL_FRAMES = 8;
 const scopeTrail = [];  // array of Float32Array pairs [xs, ys]
+
+/* Terrain state */
+const TERRAIN_ROWS = 48;
+let terrainBuf      = null;   // Float32Array of TERRAIN_ROWS * barCount
+let terrainBufCount = 0;      // barCount the buffer was built for
+let terrainHead     = 0;      // next write row in circular buffer
 
 const heatR = new Uint8Array(256);
 const heatG = new Uint8Array(256);
@@ -2742,6 +2759,111 @@ function renderScope(time, W, H, vizFillAlpha = 1) {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   TERRAIN RENDERER
+═══════════════════════════════════════════════════════════════ */
+function ensureTerrainBuffer(barCount) {
+  if (terrainBuf && terrainBufCount === barCount) return;
+  terrainBuf      = new Float32Array(TERRAIN_ROWS * barCount);
+  terrainBufCount = barCount;
+  terrainHead     = 0;
+}
+
+function renderTerrain(freq, W, H, vizFillAlpha = 1) {
+  const barCount = params.barCount;
+  ensureTerrainBuffer(barCount);
+
+  /* Advance buffer by terrainSpeed rows, writing current freq data */
+  const steps = Math.max(1, Math.round(params.terrainSpeed));
+  for (let s = 0; s < steps; s++) {
+    const rowOff = terrainHead * barCount;
+    if (freq) {
+      const binCount = freq.length;
+      for (let i = 0; i < barCount; i++) {
+        const lo = Math.floor(i       * binCount / barCount);
+        const hi = Math.floor((i + 1) * binCount / barCount);
+        let sum = 0;
+        for (let b = lo; b < hi; b++) sum += freq[b];
+        terrainBuf[rowOff + i] = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
+      }
+    } else {
+      terrainBuf.fill(0, rowOff, rowOff + barCount);
+    }
+    terrainHead = (terrainHead + 1) % TERRAIN_ROWS;
+  }
+
+  const vpY   = H * 0.38;   // vanishing point Y
+  const nearY = H * 0.92;   // nearest row Y
+
+  /* Draw grid lines first (wireframe aesthetic, very low opacity) */
+  g.save();
+  g.globalAlpha = 0.08 * vizFillAlpha;
+  g.strokeStyle = `rgb(${heatR[180]},${heatG[180]},${heatB[180]})`;
+  g.lineWidth   = 0.5;
+
+  const nearScale = 1;
+  const farT      = (TERRAIN_ROWS - 1) / (TERRAIN_ROWS - 1); // = 1
+  const farScale  = 1 - ((TERRAIN_ROWS - 1) / TERRAIN_ROWS) * 0.92;
+  const farY      = vpY + (nearY - vpY) * farT;  // = vpY (farthest row y ≈ vanishing point)
+
+  for (let i = 0; i <= barCount; i++) {
+    const nx = (i / barCount) * W * nearScale + (W - W * nearScale) / 2;
+    const fx = (i / barCount) * W * farScale  + (W - W * farScale)  / 2;
+    g.beginPath();
+    g.moveTo(nx, nearY);
+    g.lineTo(fx, farY);
+    g.stroke();
+  }
+  g.restore();
+
+  /* Draw rows back-to-front (farthest = r=47 first, nearest = r=0 last) */
+  for (let r = TERRAIN_ROWS - 1; r >= 0; r--) {
+    const t     = r / (TERRAIN_ROWS - 1);                     // 0=nearest … 1=farthest
+    const scale = 1 - (r / TERRAIN_ROWS) * 0.92;
+    const rowY  = nearY + (vpY - nearY) * t;
+    const rowW  = W * scale;
+    const rowX0 = (W - rowW) / 2;
+    const barW  = rowW / barCount;
+    const alpha = Math.pow(scale, 1.5) * vizFillAlpha;
+
+    /* Circular buffer: r=0 is newest row, r=47 is oldest */
+    const bufRow = ((terrainHead - 1 - r) + TERRAIN_ROWS * 4) % TERRAIN_ROWS;
+    const rowOff = bufRow * barCount;
+
+    /* Find peak value in this row for heat LUT */
+    let maxVal = 0;
+    for (let i = 0; i < barCount; i++) {
+      if (terrainBuf[rowOff + i] > maxVal) maxVal = terrainBuf[rowOff + i];
+    }
+    const heatIdx = Math.min(255, Math.floor(maxVal * 255));
+
+    /* Build filled polygon: baseline → bar tops → baseline */
+    g.beginPath();
+    g.moveTo(rowX0, rowY);
+
+    /* Left edge up to first bar top */
+    const firstH = terrainBuf[rowOff] * H * 0.3 * scale;
+    g.lineTo(rowX0, rowY - firstH);
+
+    /* Bar tops across the row */
+    for (let i = 0; i < barCount; i++) {
+      const bh = terrainBuf[rowOff + i] * H * 0.3 * scale;
+      const x  = rowX0 + (i + 0.5) * barW;
+      g.lineTo(x, rowY - bh);
+    }
+
+    /* Right edge down to baseline */
+    const lastH = terrainBuf[rowOff + barCount - 1] * H * 0.3 * scale;
+    g.lineTo(rowX0 + rowW, rowY - lastH);
+    g.lineTo(rowX0 + rowW, rowY);
+    g.closePath();
+
+    g.fillStyle = `rgba(${heatR[heatIdx]},${heatG[heatIdx]},${heatB[heatIdx]},${alpha})`;
+    g.fill();
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    VIGNETTE
 ═══════════════════════════════════════════════════════════════ */
 function drawVignette(W, H) {
@@ -3182,8 +3304,10 @@ function switchMode(mode) {
   document.getElementById('btn-mode-particles').classList.toggle('active',   mode === 'particles');
   document.getElementById('btn-mode-rings').classList.toggle('active',       mode === 'rings');
   document.getElementById('btn-mode-scope').classList.toggle('active',       mode === 'scope');
-  document.getElementById('row-density').style.display   = mode === 'particles' ? '' : 'none';
-  document.getElementById('row-scope-mode').style.display = mode === 'scope'     ? '' : 'none';
+  document.getElementById('btn-mode-terrain').classList.toggle('active',     mode === 'terrain');
+  document.getElementById('row-density').style.display        = mode === 'particles' ? '' : 'none';
+  document.getElementById('row-scope-mode').style.display     = mode === 'scope'     ? '' : 'none';
+  document.getElementById('row-terrain-speed').style.display  = mode === 'terrain'   ? '' : 'none';
   if (mode !== 'scope') scopeTrail.length = 0;
 }
 
@@ -3237,6 +3361,7 @@ function render(freq, time) {
     case 'particles':   renderParticles(time, W, H, vizFillAlpha);      break;
     case 'rings':       renderRings(freq, W, H, vizFillAlpha);          break;
     case 'scope':       renderScope(time, W, H, vizFillAlpha);          break;
+    case 'terrain':     renderTerrain(freq, W, H, vizFillAlpha);        break;
   }
 
   /* 5. Vignette */
@@ -3447,6 +3572,11 @@ function syncControlsToParams() {
   /* scope */
   document.getElementById('ctrl-scope-mono-delay').classList.toggle('active', params.scopeMonoDelay);
   document.getElementById('row-scope-mode').style.display = currentMode === 'scope' ? '' : 'none';
+
+  /* terrain */
+  document.getElementById('ctrl-terrain-speed').value = params.terrainSpeed;
+  document.getElementById('val-terrain-speed').textContent = params.terrainSpeed;
+  document.getElementById('row-terrain-speed').style.display = currentMode === 'terrain' ? '' : 'none';
 }
 
 
@@ -3484,6 +3614,9 @@ function applyPreset(preset, writeToHash = true) {
 
   /* particles */
   params.particleDensity = preset.particleDensity ?? 200;
+
+  /* terrain */
+  params.terrainSpeed = preset.terrainSpeed ?? 1;
 
   if (preset.name) {
     const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
@@ -3610,6 +3743,7 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     bgGradient: params.bgGradient,
     bloomIntensity:  params.bloomIntensity,
     particleDensity: params.particleDensity,
+    terrainSpeed:    params.terrainSpeed,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -4188,6 +4322,10 @@ document.getElementById('btn-mode-scope').addEventListener('click', () => {
   switchModeAnimated('scope');
   markModified();
 });
+document.getElementById('btn-mode-terrain').addEventListener('click', () => {
+  switchModeAnimated('terrain');
+  markModified();
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4277,6 +4415,12 @@ document.getElementById('ctrl-scope-mono-delay').addEventListener('click', e => 
   params.scopeMonoDelay = !params.scopeMonoDelay;
   e.currentTarget.classList.toggle('active', params.scopeMonoDelay);
   scopeTrail.length = 0;
+  markModified();
+});
+
+document.getElementById('ctrl-terrain-speed').addEventListener('input', e => {
+  params.terrainSpeed = parseInt(e.target.value, 10);
+  document.getElementById('val-terrain-speed').textContent = params.terrainSpeed;
   markModified();
 });
 
