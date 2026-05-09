@@ -1573,6 +1573,35 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <div class="style-grid" id="overlay-style-grid"></div>
           </div>
 
+          <!-- Lower-third specific controls (shown only when lower-third style is active) -->
+          <div id="lower-third-controls" style="display:none">
+
+            <div class="ctrl-row">
+              <span class="ctrl-label">Subtitle</span>
+              <input type="text" class="text-input" id="ctrl-overlay-subtext"
+                     maxlength="80" placeholder="Artist / subtitle…">
+            </div>
+
+            <div class="ctrl-row">
+              <div class="ctrl-row-header">
+                <span class="ctrl-label">Duration</span>
+                <span class="ctrl-value" id="val-overlay-duration">Always</span>
+              </div>
+              <input type="range" id="ctrl-overlay-duration" min="0" max="30" step="1" value="0">
+            </div>
+
+            <button class="btn" id="btn-show-lower-third">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="14" width="20" height="8" rx="1.5"/>
+                <line x1="2" y1="10" x2="10" y2="10" opacity="0.5"/>
+              </svg>
+              Show Lower Third
+            </button>
+
+          </div>
+
           <div class="preview-note">Text renders live on canvas</div>
 
         </div>
@@ -1790,6 +1819,8 @@ const params = {
   overlayColor:      '#ffffff',
   overlayOpacity:    1.0,
   overlayStyle:      'scroll',
+  overlaySubtext:    '',
+  overlayDuration:   0,
   /* background image */
   bgOpacity:  1.0,
   bgBlend:    'normal',
@@ -3140,6 +3171,16 @@ function drawGradientBackground(W, H, freq) {
 let textOverlayStartTime = performance.now();
 let overlaySpotCanvas = null, overlaySpotCtx = null, overlaySpotW = -1, overlaySpotH = -1;
 
+/* Lower-third animation state */
+const LOWER_THIRD_ANIM_MS = 400;
+let lowerThirdPhase     = 'hidden'; // 'hidden' | 'in' | 'visible' | 'out'
+let lowerThirdAnimStart = 0;
+
+function triggerLowerThird() {
+  lowerThirdPhase     = 'in';
+  lowerThirdAnimStart = performance.now();
+}
+
 function resetOverlayTimer() {
   textOverlayStartTime = performance.now();
 }
@@ -3316,12 +3357,101 @@ function drawSpotlightOverlay(ctx, text, t, W, H, cr, cg, cb) {
   ctx.drawImage(overlaySpotCanvas, 0, 0);
 }
 
+function drawLowerThirdOverlay(ctx, W, H, cr, cg, cb) {
+  const now = performance.now();
+
+  /* Advance animation phase */
+  if (lowerThirdPhase === 'in') {
+    if (now - lowerThirdAnimStart >= LOWER_THIRD_ANIM_MS) {
+      lowerThirdPhase     = 'visible';
+      lowerThirdAnimStart = now;
+    }
+  } else if (lowerThirdPhase === 'visible' && params.overlayDuration > 0) {
+    if (now - lowerThirdAnimStart >= params.overlayDuration * 1000) {
+      lowerThirdPhase     = 'out';
+      lowerThirdAnimStart = now;
+    }
+  } else if (lowerThirdPhase === 'out') {
+    if (now - lowerThirdAnimStart >= LOWER_THIRD_ANIM_MS) {
+      lowerThirdPhase = 'hidden';
+    }
+  }
+
+  if (lowerThirdPhase === 'hidden') return;
+
+  /* Compute eased progress (0 = off-screen below, 1 = resting position) */
+  let progress;
+  const elapsed = now - lowerThirdAnimStart;
+  if (lowerThirdPhase === 'in') {
+    const raw = Math.min(elapsed / LOWER_THIRD_ANIM_MS, 1);
+    progress  = 1 - Math.pow(1 - raw, 3); // ease-out cubic
+  } else if (lowerThirdPhase === 'visible') {
+    progress = 1;
+  } else {
+    const raw = Math.min(elapsed / LOWER_THIRD_ANIM_MS, 1);
+    progress  = Math.pow(1 - raw, 3); // ease-in cubic (reverse)
+  }
+
+  /* Bar geometry: top at H*0.82, height ~14% of H */
+  const restingY = H * 0.82;
+  const barH     = H * 0.14;
+  const barY     = H + (restingY - H) * progress; // lerp from H to restingY
+
+  /* Semi-transparent gradient background */
+  ctx.shadowBlur = 0;
+  const grad = ctx.createLinearGradient(0, barY, 0, barY + barH);
+  grad.addColorStop(0, 'rgba(0,0,0,0.45)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.72)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, barY, W, barH);
+
+  /* Accent vertical stripe (left edge) */
+  const accentHex = params.overlayColor;
+  ctx.fillStyle   = accentHex;
+  ctx.fillRect(0, barY, 6, barH);
+
+  /* Text positioning */
+  const textX  = 6 + 32;
+  const line1Y = barY + barH * 0.35;
+  const line2Y = barY + barH * 0.72;
+
+  /* Line 1 — song title (white, large, weight 600) */
+  const title = params.overlayText.trim();
+  if (title) {
+    ctx.font         = `600 ${params.overlayFontSize * 1.2}px ${params.overlayFontFamily}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign    = 'left';
+    ctx.fillStyle    = `rgba(255,255,255,${params.overlayOpacity})`;
+    ctx.fillText(title, textX, line1Y);
+  }
+
+  /* Line 2 — subtitle (accent color, smaller) */
+  const sub = params.overlaySubtext.trim();
+  if (sub) {
+    ctx.font      = `${params.overlayFontSize * 0.72}px ${params.overlayFontFamily}`;
+    ctx.fillStyle = accentHex;
+    ctx.globalAlpha = params.overlayOpacity;
+    ctx.fillText(sub, textX, line2Y);
+    ctx.globalAlpha = 1;
+  }
+}
+
 function drawTextOverlay() {
-  if (!params.overlayEnabled || !params.overlayText.trim()) return;
+  if (!params.overlayEnabled) return;
   const t            = (performance.now() - textOverlayStartTime) / 1000;
   const W            = logicalW, H = logicalH;
   const text         = params.overlayText;
   const [cr, cg, cb] = hexToRgb(params.overlayColor);
+
+  if (params.overlayStyle === 'lower-third') {
+    /* Lower-third has its own guard (phase gate) and doesn't need overlayText */
+    g.save();
+    drawLowerThirdOverlay(g, W, H, cr, cg, cb);
+    g.restore();
+    return;
+  }
+
+  if (!text.trim()) return;
 
   g.save();
   overlaySetBase(g, cr, cg, cb);
@@ -3621,6 +3751,12 @@ function syncControlsToParams() {
   document.querySelectorAll('.style-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.style === params.overlayStyle);
   });
+  document.getElementById('ctrl-overlay-subtext').value = params.overlaySubtext;
+  document.getElementById('ctrl-overlay-duration').value = params.overlayDuration;
+  document.getElementById('val-overlay-duration').textContent =
+    params.overlayDuration === 0 ? 'Always' : params.overlayDuration + 's';
+  document.getElementById('lower-third-controls').style.display =
+    params.overlayStyle === 'lower-third' ? '' : 'none';
 
   /* background */
   document.getElementById('ctrl-bg-opacity').value = params.bgOpacity;
@@ -3669,7 +3805,10 @@ function applyPreset(preset, writeToHash = true) {
   params.overlayColor      = preset.overlayColor      ?? '#ffffff';
   params.overlayOpacity    = preset.overlayOpacity    ?? 1.0;
   params.overlayStyle      = preset.overlayStyle      ?? 'scroll';
+  params.overlaySubtext    = preset.overlaySubtext    ?? '';
+  params.overlayDuration   = preset.overlayDuration   ?? 0;
   resetOverlayTimer();
+  if (params.overlayEnabled && params.overlayStyle === 'lower-third') triggerLowerThird();
 
   /* background */
   params.bgOpacity  = preset.bgOpacity  ?? 1.0;
@@ -3805,6 +3944,8 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     overlayColor:      params.overlayColor,
     overlayOpacity:    params.overlayOpacity,
     overlayStyle:      params.overlayStyle,
+    overlaySubtext:    params.overlaySubtext,
+    overlayDuration:   params.overlayDuration,
     bgOpacity:  params.bgOpacity,
     bgBlend:    params.bgBlend,
     bgFit:      params.bgFit,
@@ -4770,6 +4911,16 @@ const OVERLAY_STYLE_DEFS = [
       <circle cx="9" cy="6" r="1.5" fill="currentColor" opacity="0.95"/>
     </svg>`,
   },
+  {
+    id: 'lower-third',
+    label: 'Lower 3rd',
+    icon: `<svg width="18" height="12" viewBox="0 0 18 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="1" y="6.5" width="16" height="4.5" rx="0.75" opacity="0.55" fill="currentColor" stroke="none"/>
+      <line x1="1" y1="6.5" x2="1" y2="11" stroke-width="2.5"/>
+      <line x1="3.5" y1="8" x2="11" y2="8" opacity="0.9"/>
+      <line x1="3.5" y1="10" x2="8.5" y2="10" opacity="0.55"/>
+    </svg>`,
+  },
 ];
 
 (function initOverlayStyleGrid() {
@@ -4783,6 +4934,9 @@ const OVERLAY_STYLE_DEFS = [
       params.overlayStyle = def.id;
       resetOverlayTimer();
       document.querySelectorAll('.style-btn').forEach(b => b.classList.toggle('active', b.dataset.style === def.id));
+      document.getElementById('lower-third-controls').style.display =
+        def.id === 'lower-third' ? '' : 'none';
+      if (def.id === 'lower-third' && params.overlayEnabled) triggerLowerThird();
       markModified();
     });
     grid.appendChild(btn);
@@ -4792,6 +4946,7 @@ const OVERLAY_STYLE_DEFS = [
 document.getElementById('ctrl-overlay-enabled').addEventListener('click', e => {
   params.overlayEnabled = !params.overlayEnabled;
   e.currentTarget.classList.toggle('active', params.overlayEnabled);
+  if (params.overlayEnabled && params.overlayStyle === 'lower-third') triggerLowerThird();
   markModified();
 });
 
@@ -4821,6 +4976,22 @@ document.getElementById('ctrl-overlay-opacity').addEventListener('input', e => {
   params.overlayOpacity = parseFloat(e.target.value);
   document.getElementById('val-overlay-opacity').textContent = params.overlayOpacity.toFixed(1);
   markModified();
+});
+
+document.getElementById('ctrl-overlay-subtext').addEventListener('input', e => {
+  params.overlaySubtext = e.target.value;
+  markModified();
+});
+
+document.getElementById('ctrl-overlay-duration').addEventListener('input', e => {
+  params.overlayDuration = parseInt(e.target.value, 10);
+  document.getElementById('val-overlay-duration').textContent =
+    params.overlayDuration === 0 ? 'Always' : params.overlayDuration + 's';
+  markModified();
+});
+
+document.getElementById('btn-show-lower-third').addEventListener('click', () => {
+  triggerLowerThird();
 });
 
 
