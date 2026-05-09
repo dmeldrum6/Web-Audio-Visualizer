@@ -171,6 +171,60 @@ html, body {
   color: #ff4040;
 }
 
+/* ── YouTube Mode button ── */
+#btn-yt-mode {
+  width: auto;
+  padding: 5px 11px;
+  font-size: 11px;
+  height: 30px;
+  border-color: #3a1a1a;
+  background: #201818;
+  color: #e05050;
+  gap: 5px;
+}
+#btn-yt-mode:hover {
+  background: #2e2020;
+  border-color: #5a2a2a;
+  color: #ff7070;
+}
+#btn-yt-mode.active {
+  background: #2a0e0e;
+  border-color: #c0201a;
+  color: #ff4444;
+}
+
+/* ── YouTube Mode canvas layout ── */
+#canvas-wrap.yt-mode {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#yt-inner {
+  display: none;
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  flex-shrink: 0;
+  transform-origin: center center;
+}
+
+#canvas-wrap.yt-mode #yt-inner {
+  display: block;
+}
+
+#yt-guide {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(255,255,255,0.25);
+  pointer-events: none;
+  z-index: 5;
+  box-sizing: border-box;
+}
+
 /* ── REC badge ── */
 #rec-badge {
   display: none;
@@ -1177,6 +1231,12 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
         <span>REC</span>
         <span id="rec-time">00:00</span>
       </div>
+      <button class="btn" id="btn-yt-mode" title="Toggle YouTube 1080p mode">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.1c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v1.9c0 2.1.3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.5 21.5 12 21.5 12 21.5s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-1.9C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l8.1 3.6-8.1 3.6z"/>
+        </svg>
+        YT 1080p
+      </button>
       <button class="btn" id="btn-record" title="Start/stop recording (R)">
         <svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">
           <circle cx="5" cy="5" r="5" fill="#e05050"/>
@@ -1619,6 +1679,11 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
 
     <!-- Canvas area -->
     <div id="canvas-wrap">
+      <!-- YT inner wrapper (only active in yt-mode) -->
+      <div id="yt-inner">
+        <div id="yt-guide"></div>
+      </div>
+
       <canvas id="viz-canvas"></canvas>
 
       <div id="idle-msg">
@@ -2165,6 +2230,8 @@ const idleEl     = document.getElementById('idle-msg');
 
 let logicalW = 1, logicalH = 1;
 
+let ytModeActive = false;
+
 /* Bloom off-screen canvas */
 let bloomCanvas = document.createElement('canvas');
 let bloomCtx    = bloomCanvas.getContext('2d');
@@ -2188,6 +2255,7 @@ const bgState = {
 };
 
 function resizeCanvas() {
+  if (ytModeActive) return;
   const dpr = window.devicePixelRatio || 1;
   logicalW = canvasWrap.clientWidth;
   logicalH = canvasWrap.clientHeight;
@@ -2200,7 +2268,7 @@ function resizeCanvas() {
   barsGradH      = -1;
   vignetteW      = -1;
   vignetteH      = -1;
-  bgState.patternW = -1; /* invalidate tile pattern cache on resize */
+  bgState.patternW = -1;
   bgState.patternH = -1;
 }
 
@@ -3965,11 +4033,13 @@ function updateRecordUI() {
     btnRecord.classList.add('recording');
     btnRecord.innerHTML = `<svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">${REC_ICON_STOP}</svg> Stop`;
     recBadge.classList.add('show');
+    ytGuide.style.display = 'none';
   } else {
     btnRecord.classList.remove('recording');
     btnRecord.innerHTML = `<svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">${REC_ICON_CIRCLE}</svg> Record`;
     recBadge.classList.remove('show');
     recTimeEl.textContent = '00:00';
+    if (ytModeActive) ytGuide.style.display = 'block';
   }
 }
 
@@ -4014,15 +4084,23 @@ async function startRecording() {
 
   const combined = new MediaStream(tracks);
 
-  let mimeType = 'video/webm';
-  try {
-    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-      mimeType = 'video/webm;codecs=vp9,opus';
+  let recOptions = {};
+  if (ytModeActive) {
+    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+      recOptions = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12_000_000 };
+    } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+      recOptions = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 12_000_000 };
     }
-  } catch (_) {}
+  } else {
+    try {
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+        recOptions = { mimeType: 'video/webm;codecs=vp9,opus' };
+      }
+    } catch (_) {}
+  }
 
   try {
-    recorder = new MediaRecorder(combined, { mimeType });
+    recorder = new MediaRecorder(combined, recOptions);
   } catch (err) {
     showToast('Recording not supported in this browser — try Chrome or Edge', 'error');
     return;
@@ -4057,6 +4135,78 @@ function toggleRecording() {
 }
 
 btnRecord.addEventListener('click', toggleRecording);
+
+
+/* ═══════════════════════════════════════════════════════════════
+   YOUTUBE MODE
+═══════════════════════════════════════════════════════════════ */
+const btnYtMode  = document.getElementById('btn-yt-mode');
+const ytInner    = document.getElementById('yt-inner');
+const ytGuide    = document.getElementById('yt-guide');
+
+
+function applyYtModeLayout() {
+  /* Scale the 1920×1080 inner box to fit the canvas-wrap */
+  const wrap = canvasWrap;
+  const wrapW = wrap.clientWidth;
+  const wrapH = wrap.clientHeight;
+  const scaleX = wrapW / 1920;
+  const scaleY = wrapH / 1080;
+  const scale  = Math.min(scaleX, scaleY);
+  ytInner.style.transform = `scale(${scale})`;
+}
+
+const ytResizeObserver = new ResizeObserver(applyYtModeLayout);
+
+function enableYtMode() {
+  ytModeActive = true;
+  btnYtMode.classList.add('active');
+
+  /* Move canvas into yt-inner (CSS width/height 100% will fill the 1920×1080 box) */
+  ytInner.appendChild(canvas);
+
+  canvasWrap.classList.add('yt-mode');
+
+  /* Force 1920×1080 internal resolution, DPR=1 for recording clarity */
+  canvas.width  = 1920;
+  canvas.height = 1080;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  bloomCanvas.width  = 1920;
+  bloomCanvas.height = 1080;
+  bloomCtx.setTransform(1, 0, 0, 1, 0, 0);
+  logicalW = 1920;
+  logicalH = 1080;
+  barsGradH = -1;
+  vignetteW = -1;
+  vignetteH = -1;
+  bgState.patternW = -1;
+  bgState.patternH = -1;
+
+  applyYtModeLayout();
+  ytResizeObserver.observe(canvasWrap);
+
+  if (!isRecording) ytGuide.style.display = 'block';
+}
+
+function disableYtMode() {
+  ytModeActive = false;
+  btnYtMode.classList.remove('active');
+
+  ytGuide.style.display = 'none';
+  ytResizeObserver.unobserve(canvasWrap);
+
+  /* Move canvas back to canvas-wrap */
+  canvasWrap.appendChild(canvas);
+  canvasWrap.classList.remove('yt-mode');
+
+  /* Restore responsive sizing */
+  resizeCanvas();
+}
+
+btnYtMode.addEventListener('click', () => {
+  if (ytModeActive) disableYtMode();
+  else enableYtMode();
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
