@@ -1146,6 +1146,15 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
   display: none;
 }
 #bg-thumbnail.visible { display: block; }
+#radial-img-thumbnail {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid #28282f;
+  display: none;
+}
+#radial-img-thumbnail.visible { display: block; }
 
 .fit-btn-grid {
   display: grid;
@@ -1672,6 +1681,40 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <div class="fit-btn-grid" id="fit-btn-grid"></div>
           </div>
 
+          <div class="ctrl-row" style="margin-top:10px">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Radial Center Image</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="file" id="radial-img-file-input" accept="image/*" style="display:none">
+              <button class="btn" id="btn-load-radial-img">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                Load
+              </button>
+              <img id="radial-img-thumbnail" alt="Radial center image preview">
+              <button class="btn" id="btn-clear-radial-img" style="display:none">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6"  y1="6" x2="18" y2="18"/>
+                </svg>
+                Clear
+              </button>
+            </div>
+            <div class="ctrl-row" style="margin-top:8px">
+              <div class="ctrl-row-header">
+                <span class="ctrl-label">Opacity</span>
+                <span class="ctrl-value" id="val-radial-img-opacity">1.0</span>
+              </div>
+              <input type="range" id="ctrl-radial-img-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+            </div>
+          </div>
+
           <p class="bg-note">Images are saved locally only and not included in shared links</p>
 
         </div>
@@ -1831,6 +1874,8 @@ const params = {
   bgBlend:    'normal',
   bgFit:      'cover',
   bgGradient: false,
+  /* radial center image */
+  radialImgOpacity: 1.0,
   /* bloom/glow */
   bloomIntensity: 0,
   /* particles */
@@ -2292,6 +2337,12 @@ const bgState = {
   patternH:   -1,
 };
 
+/* Radial center image state */
+const radialImageState = {
+  image:     null,   /* HTMLImageElement | null */
+  objectUrl: null,   /* blob URL to revoke on clear */
+};
+
 function resizeCanvas() {
   if (ytModeActive) return;
   const dpr = window.devicePixelRatio || 1;
@@ -2591,20 +2642,21 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
   g.fillStyle = THEME.bgColor;
   g.fill();
 
-  /* If a background image is loaded, clip-draw it inside the circle */
-  if (bgState.image) {
-    const img   = bgState.image;
+  /* Clip-draw the center image: radial-specific image takes priority over background */
+  const centerImg     = radialImageState.image || bgState.image;
+  const centerOpacity = radialImageState.image ? params.radialImgOpacity : params.bgOpacity;
+  if (centerImg) {
     const d     = innerRadius * 2;
-    const scale = Math.max(d / img.naturalWidth, d / img.naturalHeight);
-    const dw    = img.naturalWidth  * scale;
-    const dh    = img.naturalHeight * scale;
+    const scale = Math.max(d / centerImg.naturalWidth, d / centerImg.naturalHeight);
+    const dw    = centerImg.naturalWidth  * scale;
+    const dh    = centerImg.naturalHeight * scale;
 
     g.save();
     g.beginPath();
     g.arc(cx, cy, innerRadius, 0, Math.PI * 2);
     g.clip();
-    g.globalAlpha = params.bgOpacity;
-    g.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+    g.globalAlpha = centerOpacity;
+    g.drawImage(centerImg, cx - dw / 2, cy - dh / 2, dw, dh);
     g.globalAlpha = 1;
     g.restore();
   }
@@ -3097,6 +3149,50 @@ function clearBackground() {
   document.getElementById('val-bg-opacity').textContent = '1.0';
   document.getElementById('ctrl-bg-blend').value = 'normal';
   updateFitButtons('cover');
+}
+
+function loadRadialImageFromFile(file) {
+  if (radialImageState.objectUrl) URL.revokeObjectURL(radialImageState.objectUrl);
+  const url = URL.createObjectURL(file);
+  radialImageState.objectUrl = url;
+  const img = new Image();
+  img.onload = () => {
+    radialImageState.image = img;
+    const thumb = document.getElementById('radial-img-thumbnail');
+    thumb.src = url;
+    thumb.classList.add('visible');
+    document.getElementById('btn-clear-radial-img').style.display = '';
+  };
+  img.src = url;
+}
+
+function loadRadialImageFromDataUrl(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    radialImageState.image = img;
+    const thumb = document.getElementById('radial-img-thumbnail');
+    thumb.src = dataUrl;
+    thumb.classList.add('visible');
+    document.getElementById('btn-clear-radial-img').style.display = '';
+  };
+  img.src = dataUrl;
+}
+
+function clearRadialImage() {
+  if (radialImageState.objectUrl) {
+    URL.revokeObjectURL(radialImageState.objectUrl);
+    radialImageState.objectUrl = null;
+  }
+  radialImageState.image = null;
+
+  params.radialImgOpacity = 1.0;
+
+  const thumb = document.getElementById('radial-img-thumbnail');
+  thumb.classList.remove('visible');
+  thumb.src = '';
+  document.getElementById('btn-clear-radial-img').style.display = 'none';
+  document.getElementById('ctrl-radial-img-opacity').value = '1.0';
+  document.getElementById('val-radial-img-opacity').textContent = '1.0';
 }
 
 function updateFitButtons(fit) {
@@ -3835,6 +3931,8 @@ function syncControlsToParams() {
   document.getElementById('val-bg-opacity').textContent = params.bgOpacity.toFixed(1);
   document.getElementById('ctrl-bg-blend').value = params.bgBlend;
   updateFitButtons(params.bgFit);
+  document.getElementById('ctrl-radial-img-opacity').value = params.radialImgOpacity;
+  document.getElementById('val-radial-img-opacity').textContent = params.radialImgOpacity.toFixed(1);
 
   /* bloom */
   document.getElementById('ctrl-bloom').value = params.bloomIntensity;
@@ -3888,6 +3986,7 @@ function applyPreset(preset, writeToHash = true) {
   params.bgBlend    = preset.bgBlend    ?? 'normal';
   params.bgFit      = preset.bgFit      ?? 'cover';
   params.bgGradient = preset.bgGradient ?? false;
+  params.radialImgOpacity = preset.radialImgOpacity ?? 1.0;
 
   /* bloom */
   params.bloomIntensity = preset.bloomIntensity ?? 0;
@@ -3912,8 +4011,17 @@ function applyPreset(preset, writeToHash = true) {
       params.bgBlend   = preset.bgBlend   ?? 'normal';
       params.bgFit     = preset.bgFit     ?? 'cover';
     }
+
+    const storedRadialImg = localStorage.getItem(`audio-viz-radial-img-${preset.name}`);
+    if (storedRadialImg) {
+      loadRadialImageFromDataUrl(storedRadialImg);
+    } else {
+      clearRadialImage();
+      params.radialImgOpacity = preset.radialImgOpacity ?? 1.0;
+    }
   } else {
     clearBackground();
+    clearRadialImage();
   }
 
   applyTheme(preset.theme);
@@ -3984,6 +4092,7 @@ function refreshPresetGrid() {
         const updated = loadSavedPresets().filter(p => p.name !== preset.name);
         persistSavedPresets(updated);
         localStorage.removeItem(`audio-viz-bg-${preset.name}`);
+        localStorage.removeItem(`audio-viz-radial-img-${preset.name}`);
         if (activePresetName === preset.name) activePresetName = null;
         refreshPresetGrid();
       });
@@ -4026,6 +4135,7 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     bgBlend:    params.bgBlend,
     bgFit:      params.bgFit,
     bgGradient: params.bgGradient,
+    radialImgOpacity: params.radialImgOpacity,
     bloomIntensity:  params.bloomIntensity,
     particleDensity: params.particleDensity,
     terrainSpeed:    params.terrainSpeed,
@@ -4051,6 +4161,23 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     }
   } else {
     localStorage.removeItem(bgImgKey);
+  }
+
+  /* Optionally save radial center image to localStorage */
+  const radialImgKey = `audio-viz-radial-img-${name}`;
+  if (radialImageState.image) {
+    if (confirm('Include radial center image in this preset?\n(Stored locally only — not in shared links)')) {
+      try {
+        localStorage.setItem(radialImgKey, imageToDataUrl(radialImageState.image));
+      } catch (_) {
+        showToast('Could not save radial image — local storage may be full', 'warn');
+        localStorage.removeItem(radialImgKey);
+      }
+    } else {
+      localStorage.removeItem(radialImgKey);
+    }
+  } else {
+    localStorage.removeItem(radialImgKey);
   }
 
   activePresetName = name;
@@ -5186,6 +5313,29 @@ document.getElementById('ctrl-bg-opacity').addEventListener('input', e => {
 
 document.getElementById('ctrl-bg-blend').addEventListener('change', e => {
   params.bgBlend = e.target.value;
+  markModified();
+});
+
+document.getElementById('btn-load-radial-img').addEventListener('click', () => {
+  document.getElementById('radial-img-file-input').click();
+});
+
+document.getElementById('radial-img-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadRadialImageFromFile(file);
+  e.target.value = '';
+  markModified();
+});
+
+document.getElementById('btn-clear-radial-img').addEventListener('click', () => {
+  clearRadialImage();
+  markModified();
+});
+
+document.getElementById('ctrl-radial-img-opacity').addEventListener('input', e => {
+  params.radialImgOpacity = parseFloat(e.target.value);
+  document.getElementById('val-radial-img-opacity').textContent = params.radialImgOpacity.toFixed(1);
   markModified();
 });
 
