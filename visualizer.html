@@ -1734,6 +1734,30 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
           </div>
 
           <div class="ctrl-row" style="margin-top:10px">
+            <span class="ctrl-label" style="margin-bottom:6px;display:block">Center Shape</span>
+            <div class="fit-btn-grid" style="grid-template-columns:repeat(3,1fr)" id="shape-btn-grid">
+              <button class="fit-btn active" data-shape="circle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"/>
+                </svg>
+                Circle
+              </button>
+              <button class="fit-btn" data-shape="square">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="4" y="4" width="16" height="16" rx="1"/>
+                </svg>
+                Square
+              </button>
+              <button class="fit-btn" data-shape="triangle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12,3 22,21 2,21"/>
+                </svg>
+                Triangle
+              </button>
+            </div>
+          </div>
+
+          <div class="ctrl-row" style="margin-top:10px">
             <span class="ctrl-label" style="margin-bottom:6px;display:block">Radial Center Image</span>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <input type="file" id="radial-img-file-input" accept="image/*" style="display:none">
@@ -2008,6 +2032,8 @@ const params = {
   bgGradient: false,
   /* radial center image */
   radialImgOpacity: 1.0,
+  /* radial center shape: 'circle' | 'square' | 'triangle' */
+  radialShape: 'circle',
   /* bloom/glow */
   bloomIntensity: 0,
   /* particles */
@@ -2733,6 +2759,27 @@ function renderSpectrogram(freq, W, H, vizFillAlpha = 1) {
 /* ═══════════════════════════════════════════════════════════════
    RADIAL RENDERER
 ═══════════════════════════════════════════════════════════════ */
+function radialCenterPath(shape, cx, cy, r, angle) {
+  g.beginPath();
+  if (shape === 'square') {
+    for (let i = 0; i < 4; i++) {
+      const a = angle + Math.PI / 4 + (i / 4) * Math.PI * 2;
+      if (i === 0) g.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+      else         g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+    }
+    g.closePath();
+  } else if (shape === 'triangle') {
+    for (let i = 0; i < 3; i++) {
+      const a = angle - Math.PI / 2 + (i / 3) * Math.PI * 2;
+      if (i === 0) g.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+      else         g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+    }
+    g.closePath();
+  } else {
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+  }
+}
+
 function renderRadial(freq, W, H, vizFillAlpha = 1) {
   if (!freq) return;
 
@@ -2792,9 +2839,8 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
   g.restore();
 
   /* ── Centre well ── */
-  /* Fill with theme bg colour first */
-  g.beginPath();
-  g.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+  const shape = params.radialShape || 'circle';
+  radialCenterPath(shape, cx, cy, innerRadius, radialAngle);
   g.fillStyle = THEME.bgColor;
   g.fill();
 
@@ -2808,8 +2854,7 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
     const dh    = centerImg.naturalHeight * scale;
 
     g.save();
-    g.beginPath();
-    g.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+    radialCenterPath(shape, cx, cy, innerRadius, radialAngle);
     g.clip();
     g.globalAlpha = centerOpacity;
     g.drawImage(centerImg, cx - dw / 2, cy - dh / 2, dw, dh);
@@ -4260,6 +4305,9 @@ function syncControlsToParams() {
   updateFitButtons(params.bgFit);
   document.getElementById('ctrl-radial-img-opacity').value = params.radialImgOpacity;
   document.getElementById('val-radial-img-opacity').textContent = params.radialImgOpacity.toFixed(1);
+  document.querySelectorAll('#shape-btn-grid .fit-btn[data-shape]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shape === params.radialShape);
+  });
 
   /* bloom */
   document.getElementById('ctrl-bloom').value = params.bloomIntensity;
@@ -4327,6 +4375,7 @@ function applyPreset(preset, writeToHash = true) {
   params.bgFit      = preset.bgFit      ?? 'cover';
   params.bgGradient = preset.bgGradient ?? false;
   params.radialImgOpacity = preset.radialImgOpacity ?? 1.0;
+  params.radialShape      = preset.radialShape      ?? 'circle';
 
   /* bloom */
   params.bloomIntensity = preset.bloomIntensity ?? 0;
@@ -5726,6 +5775,15 @@ document.getElementById('ctrl-radial-img-opacity').addEventListener('input', e =
   params.radialImgOpacity = parseFloat(e.target.value);
   document.getElementById('val-radial-img-opacity').textContent = params.radialImgOpacity.toFixed(1);
   markModified();
+});
+
+document.querySelectorAll('#shape-btn-grid .fit-btn[data-shape]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    params.radialShape = btn.dataset.shape;
+    document.querySelectorAll('#shape-btn-grid .fit-btn[data-shape]').forEach(b =>
+      b.classList.toggle('active', b === btn));
+    markModified();
+  });
 });
 
 
