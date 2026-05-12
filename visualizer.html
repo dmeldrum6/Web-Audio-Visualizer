@@ -2759,6 +2759,16 @@ function renderSpectrogram(freq, W, H, vizFillAlpha = 1) {
 /* ═══════════════════════════════════════════════════════════════
    RADIAL RENDERER
 ═══════════════════════════════════════════════════════════════ */
+/* Returns the distance from center to the boundary of a regular n-gon
+   (circumradius R, first vertex at vertex0Angle) at polar angle phi. */
+function polygonBoundaryRadius(n, R, vertex0Angle, phi) {
+  const segAngle    = (2 * Math.PI) / n;
+  const phiRel      = ((phi - vertex0Angle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  const phiInSector = phiRel % segAngle - segAngle / 2;
+  return R * Math.cos(Math.PI / n) / Math.cos(phiInSector);
+}
+
+/* Traces a path for the center-well shape (used for fill + image clip). */
 function radialCenterPath(shape, cx, cy, r, angle) {
   g.beginPath();
   if (shape === 'square') {
@@ -2783,9 +2793,9 @@ function radialCenterPath(shape, cx, cy, r, angle) {
 function renderRadial(freq, W, H, vizFillAlpha = 1) {
   if (!freq) return;
 
-  const cx      = W / 2;
-  const cy      = H / 2;
-  const minDim  = Math.min(W, H);
+  const cx        = W / 2;
+  const cy        = H / 2;
+  const minDim    = Math.min(W, H);
   const innerBase = minDim * 0.18;
   const outerMax  = minDim * 0.46;
 
@@ -2802,6 +2812,10 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
   const barCount = params.barCount;
   const binCount = freq.length;
   const smoothK  = 0.08 + 0.14 * params.motionAmount;
+  const shape    = params.radialShape || 'circle';
+
+  /* Constant bar width derived from base radius so it doesn't change with beat pulse */
+  const barWidth = Math.max(1, (2 * Math.PI * innerBase / barCount) * 0.75);
 
   /* ── Draw radiating bars ── */
   g.save();
@@ -2822,16 +2836,24 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
     const barH = barHeights[i] * (outerMax - innerRadius);
     if (barH <= 0.5) continue;
 
-    const angle    = (i / barCount) * Math.PI * 2;
-    const cv       = Math.min(255, Math.max(0, Math.floor(barHeights[i] * 255)));
-    /* bar width: fraction of the circumference at innerRadius */
-    const barWidth = Math.max(1, (2 * Math.PI * innerRadius / barCount) * 0.75);
+    /* Angle of this bar within the (already-rotated) frame */
+    const angle = (i / barCount) * Math.PI * 2;
+    const cv    = Math.min(255, Math.max(0, Math.floor(barHeights[i] * 255)));
+
+    /* For shaped modes: compute how far from center the shape boundary is at this angle.
+       polygonBoundaryRadius uses the same vertex0 angles as radialCenterPath so bars
+       align perfectly with the rendered shape. */
+    let startR = innerRadius;
+    if (shape === 'square') {
+      startR = polygonBoundaryRadius(4, innerRadius, Math.PI / 4, angle);
+    } else if (shape === 'triangle') {
+      startR = polygonBoundaryRadius(3, innerRadius, -Math.PI / 2, angle);
+    }
 
     g.save();
     g.rotate(angle);
-    /* After rotate, +x axis points outward at 'angle'; draw bar along +x */
     g.fillStyle = `rgb(${heatR[cv]},${heatG[cv]},${heatB[cv]})`;
-    g.fillRect(innerRadius, -barWidth / 2, barH, barWidth);
+    g.fillRect(startR, -barWidth / 2, barH, barWidth);
     g.restore();
   }
 
@@ -2839,7 +2861,6 @@ function renderRadial(freq, W, H, vizFillAlpha = 1) {
   g.restore();
 
   /* ── Centre well ── */
-  const shape = params.radialShape || 'circle';
   radialCenterPath(shape, cx, cy, innerRadius, radialAngle);
   g.fillStyle = THEME.bgColor;
   g.fill();
