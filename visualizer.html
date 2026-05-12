@@ -1204,6 +1204,17 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
   line-height: 1.4;
 }
 
+/* ── Artist Card thumbnail ── */
+#artist-img-thumbnail {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid #28282f;
+  display: none;
+}
+#artist-img-thumbnail.visible { display: block; }
+
 /* ── Beat indicator dot ── */
 #beat-dot {
   width: 8px;
@@ -1756,6 +1767,73 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
         </div>
       </div>
 
+      <!-- Artist Card section (collapsible) -->
+      <div class="ctrl-section collapsed" id="section-artist-card">
+        <div class="ctrl-section-header">
+          <div class="section-label" style="margin:0">Artist Card</div>
+          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ctrl-section-body">
+
+          <div class="toggle-row">
+            <span class="ctrl-label">Enable</span>
+            <button class="toggle-btn" id="ctrl-artist-card-enabled" aria-label="Toggle artist card"></button>
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label">Artist Name</span>
+            <input type="text" class="text-input" id="ctrl-artist-name"
+                   maxlength="40" placeholder="Artist name…">
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-label">Track Title</span>
+            <input type="text" class="text-input" id="ctrl-track-title"
+                   maxlength="60" placeholder="Track title…">
+          </div>
+
+          <input type="file" id="artist-img-file-input" accept="image/jpeg,image/png" style="display:none">
+          <button class="btn" id="btn-load-artist-img">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Load Image
+          </button>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <img id="artist-img-thumbnail" alt="Artist image preview">
+            <button class="btn" id="btn-clear-artist-img" style="display:none;flex:1">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6"  y1="6" x2="18" y2="18"/>
+              </svg>
+              Clear
+            </button>
+          </div>
+
+          <div class="ctrl-row">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Opacity</span>
+              <span class="ctrl-value" id="val-artist-card-opacity">1.0</span>
+            </div>
+            <input type="range" id="ctrl-artist-card-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+          </div>
+
+          <p class="preview-note">Image not saved in presets or shared links</p>
+
+        </div>
+      </div>
+
       <div style="flex:1"></div>
     </div><!-- /sidebar -->
 
@@ -1893,6 +1971,11 @@ const params = {
   progressBar: false,
   /* elapsed timer */
   showTimer: false,
+  /* artist card */
+  artistCardEnabled: false,
+  artistCardName:    '',
+  artistCardTitle:   '',
+  artistCardOpacity: 1.0,
 };
 
 
@@ -2346,6 +2429,12 @@ const bgState = {
 
 /* Radial center image state */
 const radialImageState = {
+  image:     null,   /* HTMLImageElement | null */
+  objectUrl: null,   /* blob URL to revoke on clear */
+};
+
+/* Artist card image state */
+const artistCardState = {
   image:     null,   /* HTMLImageElement | null */
   objectUrl: null,   /* blob URL to revoke on clear */
 };
@@ -3202,6 +3291,33 @@ function clearRadialImage() {
   document.getElementById('val-radial-img-opacity').textContent = '1.0';
 }
 
+function loadArtistImageFromFile(file) {
+  if (artistCardState.objectUrl) URL.revokeObjectURL(artistCardState.objectUrl);
+  const url = URL.createObjectURL(file);
+  artistCardState.objectUrl = url;
+  const img = new Image();
+  img.onload = () => {
+    artistCardState.image = img;
+    const thumb = document.getElementById('artist-img-thumbnail');
+    thumb.src = url;
+    thumb.classList.add('visible');
+    document.getElementById('btn-clear-artist-img').style.display = '';
+  };
+  img.src = url;
+}
+
+function clearArtistImage() {
+  if (artistCardState.objectUrl) {
+    URL.revokeObjectURL(artistCardState.objectUrl);
+    artistCardState.objectUrl = null;
+  }
+  artistCardState.image = null;
+  const thumb = document.getElementById('artist-img-thumbnail');
+  thumb.classList.remove('visible');
+  thumb.src = '';
+  document.getElementById('btn-clear-artist-img').style.display = 'none';
+}
+
 function updateFitButtons(fit) {
   document.querySelectorAll('.fit-btn[data-fit]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.fit === fit && !params.bgGradient);
@@ -3720,6 +3836,84 @@ function drawElapsedTimer(W, H) {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   ARTIST CARD
+═══════════════════════════════════════════════════════════════ */
+function drawArtistCard(W, H) {
+  if (!params.artistCardEnabled) return;
+
+  const PANEL_W = 220;
+  const PAD     = 16;
+  const IMG_D   = 160;
+  const IMG_R   = IMG_D / 2;
+  const NAME_SZ = 22;
+  const TITLE_SZ = 16;
+  const GAP_IMG_NAME  = 14;
+  const GAP_NAME_TITLE = 6;
+
+  /* Vertical center for the three-element group */
+  const groupH = IMG_D + GAP_IMG_NAME + NAME_SZ + GAP_NAME_TITLE + TITLE_SZ;
+  const groupY = (H - groupH) / 2;
+  const cx     = PANEL_W / 2;
+
+  g.save();
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = params.artistCardOpacity;
+
+  /* Semi-transparent panel background */
+  g.fillStyle = 'rgba(0,0,0,0.45)';
+  g.fillRect(0, 0, PANEL_W, H);
+
+  /* Circular image crop */
+  const imgCx = cx;
+  const imgCy = groupY + IMG_R;
+
+  g.save();
+  g.beginPath();
+  g.arc(imgCx, imgCy, IMG_R, 0, Math.PI * 2);
+  g.clip();
+
+  if (artistCardState.image) {
+    /* Draw image scaled to fill the circle */
+    const img  = artistCardState.image;
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const sx   = (img.naturalWidth  - side) / 2;
+    const sy   = (img.naturalHeight - side) / 2;
+    g.drawImage(img, sx, sy, side, side, imgCx - IMG_R, imgCy - IMG_R, IMG_D, IMG_D);
+  } else {
+    /* Placeholder: accent-colored circle with music note */
+    g.fillStyle = THEME.accent;
+    g.fillRect(imgCx - IMG_R, imgCy - IMG_R, IMG_D, IMG_D);
+    g.font         = `bold ${IMG_R * 0.9}px sans-serif`;
+    g.fillStyle    = '#ffffff';
+    g.textAlign    = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('♪', imgCx, imgCy);
+  }
+
+  g.restore();
+
+  /* Artist name — bold, theme accent/highlight color */
+  const nameY  = groupY + IMG_D + GAP_IMG_NAME + NAME_SZ / 2;
+  g.font         = `bold ${NAME_SZ}px system-ui,-apple-system,sans-serif`;
+  g.fillStyle    = THEME.highlight;
+  g.textAlign    = 'center';
+  g.textBaseline = 'middle';
+  const nameText = params.artistCardName.trim() || 'Artist Name';
+  g.fillText(nameText, cx, nameY, PANEL_W - PAD * 2);
+
+  /* Track title — smaller, white at 70% opacity */
+  if (params.artistCardTitle.trim()) {
+    const titleY = nameY + NAME_SZ / 2 + GAP_NAME_TITLE + TITLE_SZ / 2;
+    g.font         = `${TITLE_SZ}px system-ui,-apple-system,sans-serif`;
+    g.fillStyle    = 'rgba(255,255,255,0.7)';
+    g.fillText(params.artistCardTitle.trim(), cx, titleY, PANEL_W - PAD * 2);
+  }
+
+  g.restore();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    RENDER  (dispatches to active mode renderer)
 ═══════════════════════════════════════════════════════════════ */
 function render(freq, time) {
@@ -3816,6 +4010,9 @@ function render(freq, time) {
 
   /* Elapsed timer — drawn after progress bar so it's always on top */
   drawElapsedTimer(W, H);
+
+  /* Artist card — drawn after bloom so the panel is never blurred */
+  drawArtistCard(W, H);
 }
 
 
@@ -3993,6 +4190,13 @@ function syncControlsToParams() {
   document.getElementById('ctrl-terrain-speed').value = params.terrainSpeed;
   document.getElementById('val-terrain-speed').textContent = params.terrainSpeed;
   document.getElementById('row-terrain-speed').style.display = currentMode === 'terrain' ? '' : 'none';
+
+  /* artist card */
+  document.getElementById('ctrl-artist-card-enabled').classList.toggle('active', params.artistCardEnabled);
+  document.getElementById('ctrl-artist-name').value = params.artistCardName;
+  document.getElementById('ctrl-track-title').value = params.artistCardTitle;
+  document.getElementById('ctrl-artist-card-opacity').value = params.artistCardOpacity;
+  document.getElementById('val-artist-card-opacity').textContent = params.artistCardOpacity.toFixed(1);
 }
 
 
@@ -4043,6 +4247,12 @@ function applyPreset(preset, writeToHash = true) {
 
   /* elapsed timer */
   params.showTimer = preset.showTimer ?? false;
+
+  /* artist card (image is not serialized — loaded separately by user) */
+  params.artistCardEnabled  = preset.artistCard?.enabled  ?? false;
+  params.artistCardName     = preset.artistCard?.artistName ?? '';
+  params.artistCardTitle    = preset.artistCard?.trackTitle  ?? '';
+  params.artistCardOpacity  = preset.artistCard?.opacity   ?? 1.0;
 
   if (preset.name) {
     const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
@@ -4185,6 +4395,13 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     terrainSpeed:    params.terrainSpeed,
     progressBar:     params.progressBar,
     showTimer:       params.showTimer,
+    /* image cannot be serialized — only text/opacity fields are saved */
+    artistCard: {
+      enabled:    params.artistCardEnabled,
+      artistName: params.artistCardName,
+      trackTitle: params.artistCardTitle,
+      opacity:    params.artistCardOpacity,
+    },
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -5413,6 +5630,49 @@ document.getElementById('ctrl-beat-sensitivity').addEventListener('input', e => 
   const val = parseFloat(e.target.value);
   document.getElementById('val-beat-sensitivity').textContent = val.toFixed(2);
   BeatDetector.setMultiplier(val);
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ARTIST CARD — UI bindings
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('ctrl-artist-card-enabled').addEventListener('click', e => {
+  params.artistCardEnabled = !params.artistCardEnabled;
+  e.currentTarget.classList.toggle('active', params.artistCardEnabled);
+  markModified();
+});
+
+document.getElementById('ctrl-artist-name').addEventListener('input', e => {
+  params.artistCardName = e.target.value;
+  markModified();
+});
+
+document.getElementById('ctrl-track-title').addEventListener('input', e => {
+  params.artistCardTitle = e.target.value;
+  markModified();
+});
+
+document.getElementById('btn-load-artist-img').addEventListener('click', () => {
+  document.getElementById('artist-img-file-input').click();
+});
+
+document.getElementById('artist-img-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadArtistImageFromFile(file);
+  e.target.value = '';
+  markModified();
+});
+
+document.getElementById('btn-clear-artist-img').addEventListener('click', () => {
+  clearArtistImage();
+  markModified();
+});
+
+document.getElementById('ctrl-artist-card-opacity').addEventListener('input', e => {
+  params.artistCardOpacity = parseFloat(e.target.value);
+  document.getElementById('val-artist-card-opacity').textContent = params.artistCardOpacity.toFixed(1);
+  markModified();
 });
 
 
