@@ -1865,6 +1865,19 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <input type="range" id="ctrl-artist-card-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
           </div>
 
+          <div class="toggle-row">
+            <span class="ctrl-label">Record Timer</span>
+            <button class="toggle-btn" id="ctrl-artist-card-timer-enabled" aria-label="Toggle artist card record timer"></button>
+          </div>
+
+          <div class="ctrl-row" id="row-artist-card-timer-duration" style="display:none">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Timer Duration</span>
+              <span class="ctrl-value" id="val-artist-card-timer-duration">5s</span>
+            </div>
+            <input type="range" id="ctrl-artist-card-timer-duration" min="1" max="30" step="1" value="5">
+          </div>
+
           <p class="preview-note">Image not saved in presets or shared links</p>
 
         </div>
@@ -2008,10 +2021,12 @@ const params = {
   /* elapsed timer */
   showTimer: false,
   /* artist card */
-  artistCardEnabled: false,
-  artistCardName:    '',
-  artistCardTitle:   '',
-  artistCardOpacity: 1.0,
+  artistCardEnabled:       false,
+  artistCardName:          '',
+  artistCardTitle:         '',
+  artistCardOpacity:       1.0,
+  artistCardTimerEnabled:  false,
+  artistCardTimerDuration: 5,
 };
 
 
@@ -2509,6 +2524,10 @@ let beatFlashStart = -Infinity;
 let artistCardBeatPulse    = 1.0;   // drives image scale
 let artistCardBgBeatAlpha  = 0.0;   // extra bg alpha on beat (0 = rest)
 let artistCardGlowAlpha    = 0.0;   // glow text alpha (0 = rest)
+
+/* Artist card record-timer state */
+let artistCardTimerActive  = false;
+let artistCardTimerEndTime = 0;
 
 const MODES = ['bars', 'waveform', 'spectrogram', 'radial', 'particles', 'rings', 'scope', 'terrain'];
 
@@ -3882,6 +3901,18 @@ function drawElapsedTimer(W, H) {
 function drawArtistCard(W, H) {
   if (!params.artistCardEnabled) return;
 
+  /* Timer-driven fade-out triggered by record start */
+  let timerAlpha = 1.0;
+  if (artistCardTimerActive) {
+    const remaining = artistCardTimerEndTime - Date.now();
+    if (remaining <= 0) {
+      artistCardTimerActive = false;
+      return;
+    }
+    const FADE_MS = 1000;
+    timerAlpha = remaining < FADE_MS ? remaining / FADE_MS : 1.0;
+  }
+
   /* Decay beat-pulse state toward rest values each frame */
   artistCardBeatPulse   = artistCardBeatPulse   + (1.0 - artistCardBeatPulse)   * 0.12;
   artistCardBgBeatAlpha = artistCardBgBeatAlpha + (0.0 - artistCardBgBeatAlpha) * 0.12;
@@ -3903,7 +3934,7 @@ function drawArtistCard(W, H) {
 
   g.save();
   g.globalCompositeOperation = 'source-over';
-  g.globalAlpha = params.artistCardOpacity;
+  g.globalAlpha = params.artistCardOpacity * timerAlpha;
 
   /* Semi-transparent panel background — brightens on beat */
   const bgAlpha = 0.45 + artistCardBgBeatAlpha;
@@ -4256,6 +4287,11 @@ function syncControlsToParams() {
   document.getElementById('ctrl-track-title').value = params.artistCardTitle;
   document.getElementById('ctrl-artist-card-opacity').value = params.artistCardOpacity;
   document.getElementById('val-artist-card-opacity').textContent = params.artistCardOpacity.toFixed(1);
+  document.getElementById('ctrl-artist-card-timer-enabled').classList.toggle('active', params.artistCardTimerEnabled);
+  document.getElementById('ctrl-artist-card-timer-duration').value = params.artistCardTimerDuration;
+  document.getElementById('val-artist-card-timer-duration').textContent = params.artistCardTimerDuration + 's';
+  document.getElementById('row-artist-card-timer-duration').style.display =
+    params.artistCardTimerEnabled ? '' : 'none';
 }
 
 
@@ -4785,6 +4821,12 @@ async function startRecording() {
   isRecording      = true;
   updateRecordUI();
   sidebar.classList.add('recording-hidden');
+
+  /* Trigger artist card display timer if enabled */
+  if (params.artistCardTimerEnabled && params.artistCardEnabled) {
+    artistCardTimerActive  = true;
+    artistCardTimerEndTime = Date.now() + params.artistCardTimerDuration * 1000;
+  }
 
   recTimerInterval = setInterval(updateRecordTimer, 500);
 
@@ -5751,6 +5793,20 @@ document.getElementById('btn-clear-artist-img').addEventListener('click', () => 
 document.getElementById('ctrl-artist-card-opacity').addEventListener('input', e => {
   params.artistCardOpacity = parseFloat(e.target.value);
   document.getElementById('val-artist-card-opacity').textContent = params.artistCardOpacity.toFixed(1);
+  markModified();
+});
+
+document.getElementById('ctrl-artist-card-timer-enabled').addEventListener('click', e => {
+  params.artistCardTimerEnabled = !params.artistCardTimerEnabled;
+  e.currentTarget.classList.toggle('active', params.artistCardTimerEnabled);
+  document.getElementById('row-artist-card-timer-duration').style.display =
+    params.artistCardTimerEnabled ? '' : 'none';
+  markModified();
+});
+
+document.getElementById('ctrl-artist-card-timer-duration').addEventListener('input', e => {
+  params.artistCardTimerDuration = parseInt(e.target.value, 10);
+  document.getElementById('val-artist-card-timer-duration').textContent = params.artistCardTimerDuration + 's';
   markModified();
 });
 
