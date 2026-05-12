@@ -1492,6 +1492,11 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
             <button class="toggle-btn" id="ctrl-progress-bar" aria-label="Toggle progress bar"></button>
           </div>
 
+          <div class="toggle-row">
+            <span class="ctrl-label">Show Timer</span>
+            <button class="toggle-btn" id="ctrl-show-timer" aria-label="Toggle elapsed timer"></button>
+          </div>
+
         </div>
       </div>
 
@@ -1886,6 +1891,8 @@ const params = {
   terrainSpeed: 1,
   /* progress bar */
   progressBar: false,
+  /* elapsed timer */
+  showTimer: false,
 };
 
 
@@ -3683,6 +3690,36 @@ function drawProgressBar(W, H) {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   ELAPSED TIMER
+═══════════════════════════════════════════════════════════════ */
+function drawElapsedTimer(W, H) {
+  if (!params.showTimer) return;
+
+  const pos = AudioEngine.getSourceType() === 'file'
+    ? AudioEngine.fileGetOffset()
+    : 0;
+
+  const mins = Math.floor(pos / 60);
+  const secs = Math.floor(pos) % 60;
+  const label = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+
+  const pad = 16;
+  /* Sit above the progress bar (4 px) when it is visible */
+  const bottomOffset = params.progressBar ? 4 : 0;
+
+  g.save();
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 0.8;
+  g.font        = '18px monospace';
+  g.fillStyle   = THEME.highlight;
+  g.textBaseline = 'bottom';
+  g.textAlign    = 'right';
+  g.fillText(label, W - pad, H - pad - bottomOffset);
+  g.restore();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    RENDER  (dispatches to active mode renderer)
 ═══════════════════════════════════════════════════════════════ */
 function render(freq, time) {
@@ -3776,6 +3813,9 @@ function render(freq, time) {
 
   /* Progress bar — drawn last so it composites over everything */
   drawProgressBar(W, H);
+
+  /* Elapsed timer — drawn after progress bar so it's always on top */
+  drawElapsedTimer(W, H);
 }
 
 
@@ -3938,6 +3978,7 @@ function syncControlsToParams() {
   document.getElementById('ctrl-bloom').value = params.bloomIntensity;
   document.getElementById('val-bloom').textContent = params.bloomIntensity === 0 ? 'Off' : params.bloomIntensity;
   document.getElementById('ctrl-progress-bar').classList.toggle('active', params.progressBar);
+  document.getElementById('ctrl-show-timer').classList.toggle('active', params.showTimer);
 
   /* particles */
   document.getElementById('ctrl-density').value = params.particleDensity;
@@ -3999,6 +4040,9 @@ function applyPreset(preset, writeToHash = true) {
 
   /* progress bar */
   params.progressBar = preset.progressBar ?? false;
+
+  /* elapsed timer */
+  params.showTimer = preset.showTimer ?? false;
 
   if (preset.name) {
     const storedImg = localStorage.getItem(`audio-viz-bg-${preset.name}`);
@@ -4140,6 +4184,7 @@ document.getElementById('btn-save-preset').addEventListener('click', () => {
     particleDensity: params.particleDensity,
     terrainSpeed:    params.terrainSpeed,
     progressBar:     params.progressBar,
+    showTimer:       params.showTimer,
   };
 
   const updated = loadSavedPresets().filter(p => p.name !== name);
@@ -4922,6 +4967,12 @@ document.getElementById('ctrl-terrain-speed').addEventListener('input', e => {
 document.getElementById('ctrl-progress-bar').addEventListener('click', e => {
   params.progressBar = !params.progressBar;
   e.currentTarget.classList.toggle('active', params.progressBar);
+  markModified();
+});
+
+document.getElementById('ctrl-show-timer').addEventListener('click', e => {
+  params.showTimer = !params.showTimer;
+  e.currentTarget.classList.toggle('active', params.showTimer);
   markModified();
 });
 
