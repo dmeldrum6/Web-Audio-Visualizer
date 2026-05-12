@@ -88,6 +88,17 @@ html, body {
   padding: 18px 14px;
   gap: 20px;
   overflow-y: auto;
+  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease, opacity 0.25s ease;
+}
+
+#sidebar.recording-hidden {
+  width: 0;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+  opacity: 0;
+  border-right: none;
 }
 
 .section-label {
@@ -191,6 +202,22 @@ html, body {
   background: #2a0e0e;
   border-color: #c0201a;
   color: #ff4444;
+}
+
+/* ── YouTube Layout preset button ── */
+#btn-yt-layout {
+  width: auto;
+  padding: 5px 11px;
+  font-size: 11px;
+  height: 30px;
+  gap: 5px;
+}
+
+/* ── Recording auto-hide note ── */
+#rec-autohide-note {
+  font-size: 10px;
+  color: #48484f;
+  white-space: nowrap;
 }
 
 /* ── YouTube Mode canvas layout ── */
@@ -1257,12 +1284,21 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
         </svg>
         YT 1080p
       </button>
+      <button class="btn" id="btn-yt-layout" title="Apply YouTube music video layout preset">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18"/>
+          <path d="M9 21V9"/>
+        </svg>
+        YT Layout
+      </button>
       <button class="btn" id="btn-record" title="Start/stop recording (R)">
         <svg id="rec-icon" width="10" height="10" viewBox="0 0 10 10">
           <circle cx="5" cy="5" r="5" fill="#e05050"/>
         </svg>
         Record
       </button>
+      <span id="rec-autohide-note">Sidebar auto-hides during recording</span>
       <button class="btn" id="btn-copy-link">Copy link</button>
       <button class="btn" id="btn-shortcuts" title="Keyboard shortcuts (?)">?</button>
       <div id="file-info">
@@ -4699,6 +4735,7 @@ function stopRecording() {
   recWarnTimer     = null;
   isRecording      = false;
   updateRecordUI();
+  sidebar.classList.remove('recording-hidden');
   recorder.stop();
   recorder = null;
 }
@@ -4747,19 +4784,20 @@ async function startRecording() {
   recordStartTime  = Date.now();
   isRecording      = true;
   updateRecordUI();
+  sidebar.classList.add('recording-hidden');
 
   recTimerInterval = setInterval(updateRecordTimer, 500);
 
-  /* Warning at 4:50 */
+  /* Warning at 59:50 */
   recWarnTimer = setTimeout(() => {
     showToast('Recording will auto-stop in 10 seconds', 'warn');
-  }, 290000);
+  }, 3590000);
 
-  /* Auto-stop at 5:00 */
+  /* Auto-stop at 60:00 */
   recMaxTimer = setTimeout(() => {
-    showToast('Max recording time (5:00) reached — saving…', 'warn');
+    showToast('Max recording time (60:00) reached — saving…', 'warn');
     stopRecording();
-  }, 300000);
+  }, 3600000);
 }
 
 function toggleRecording() {
@@ -4839,6 +4877,21 @@ function disableYtMode() {
 btnYtMode.addEventListener('click', () => {
   if (ytModeActive) disableYtMode();
   else enableYtMode();
+});
+
+document.getElementById('btn-yt-layout').addEventListener('click', () => {
+  if (!ytModeActive) enableYtMode();
+  params.artistCardEnabled = true;
+  params.progressBar       = true;
+  params.showTimer         = true;
+  if (params.overlayText.trim()) {
+    params.overlayEnabled = true;
+    params.overlayStyle   = 'lower-third';
+    triggerLowerThird();
+  }
+  syncControlsToParams();
+  markModified();
+  showToast('YouTube layout applied', 'info');
 });
 
 
