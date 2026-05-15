@@ -94,7 +94,7 @@ html, body {
   padding-top: 56px;
   gap: 2px;
   z-index: 200;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .nav-btn {
@@ -1361,6 +1361,64 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
   gap: 12px;
   overflow-y: auto;
   flex: 1;
+}
+
+/* ── Nav button CSS tooltip (shown to the right of each icon) ── */
+.nav-btn {
+  position: relative;
+}
+.nav-btn::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(14, 14, 18, 0.96);
+  border: 1px solid #2e2e3a;
+  color: #c8c8d8;
+  font-size: 11px;
+  font-family: inherit;
+  white-space: nowrap;
+  padding: 4px 9px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 10;
+}
+.nav-btn:hover::after {
+  opacity: 1;
+}
+
+/* ── Active-selection dot on Mode / Themes nav buttons ── */
+.nav-btn[data-has-selection]::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* ── Panel section open animation ── */
+@keyframes panelFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.panel-section.panel-active .panel-header,
+.panel-section.panel-active .panel-body {
+  animation: panelFadeIn 150ms ease forwards;
+}
+
+/* ── Narrow screen: shrink right panel ── */
+@media (max-width: 900px) {
+  #right-panel-host {
+    width: 240px;
+  }
 }
 </style>
 </head>
@@ -6077,6 +6135,7 @@ self.addEventListener('fetch', e => {
   function openPanel(panelId) {
     sections.forEach(s => s.classList.toggle('panel-active', s.id === panelId));
     host.classList.add('panel-open');
+    host.scrollTop = 0; // reset scroll to top on every open
   }
 
   navBtns.forEach(btn => {
@@ -6097,9 +6156,37 @@ self.addEventListener('fetch', e => {
     if (e.target.closest('.panel-close-btn')) closePanel();
   });
 
+  // Tab focus trap: while the panel is open, Tab cycles only through
+  // focusable controls inside the currently visible panel section.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || !host.classList.contains('panel-open')) return;
+    const activeSection = host.querySelector('.panel-section.panel-active');
+    if (!activeSection) return;
+    const focusable = Array.from(activeSection.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+      'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(el => el.offsetParent !== null); // exclude hidden rows
+    if (!focusable.length) return;
+    e.preventDefault();
+    const idx = focusable.indexOf(document.activeElement);
+    if (e.shiftKey) {
+      focusable[idx <= 0 ? focusable.length - 1 : idx - 1].focus();
+    } else {
+      focusable[idx < 0 || idx === focusable.length - 1 ? 0 : idx + 1].focus();
+    }
+  });
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && host.classList.contains('panel-open')) closePanel();
   });
+
+  // Active-selection indicator: Mode and Themes panels always have an active
+  // selection (defaults are 'bars' mode and 'Midnight' theme), so mark them
+  // passively on load so users see the dot without opening the panels.
+  const navMode   = document.getElementById('nav-mode');
+  const navThemes = document.getElementById('nav-themes');
+  if (navMode)   navMode.dataset.hasSelection   = '';
+  if (navThemes) navThemes.dataset.hasSelection = '';
 })();
 </script>
 </body>
