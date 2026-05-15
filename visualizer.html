@@ -1335,6 +1335,98 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
 #beat-dot.beat {
   animation: beatDotPulse 0.2s ease-out forwards;
 }
+
+/* ── Right panel host ── */
+#right-panel-host {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 280px;
+  height: 100vh;
+  background: rgba(26, 26, 31, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-left: 1px solid #2e2e36;
+  z-index: 150;
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#right-panel-host.panel-open {
+  transform: translateX(0);
+}
+
+#right-panel-host::-webkit-scrollbar {
+  width: 5px;
+}
+#right-panel-host::-webkit-scrollbar-track {
+  background: transparent;
+}
+#right-panel-host::-webkit-scrollbar-thumb {
+  background: #33333d;
+  border-radius: 3px;
+}
+#right-panel-host::-webkit-scrollbar-thumb:hover {
+  background: #44444e;
+}
+#right-panel-host {
+  scrollbar-width: thin;
+  scrollbar-color: #33333d transparent;
+}
+
+/* ── Panel sections ── */
+.panel-section {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-section.panel-active {
+  display: flex;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid #26262d;
+  flex-shrink: 0;
+}
+
+.panel-header-title {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 1px;
+  color: #9999aa;
+  text-transform: lowercase;
+}
+
+.panel-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #555566;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  line-height: 1;
+}
+
+.panel-close-btn:hover {
+  background: #2a2a33;
+  color: #aaaabc;
+}
 </style>
 </head>
 <body>
@@ -2055,6 +2147,81 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
 
   </div><!-- /body-row -->
 </div><!-- /app -->
+
+<!-- Right overlay panel -->
+<div id="right-panel-host" role="complementary" aria-label="Settings panel">
+
+  <div id="panel-audio" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Audio Input</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-playback" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Playback</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-mode" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Mode</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-analyzer" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Analyzer</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-visuals" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Visuals</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-beat" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Beat</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-bg" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Background</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-themes" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Themes</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-presets" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Presets</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+  <div id="panel-text" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Text Overlay</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+  </div>
+
+</div><!-- /right-panel-host -->
 
 <!-- Keyboard shortcuts modal -->
 <div id="shortcuts-modal" class="hidden">
@@ -6063,6 +6230,46 @@ self.addEventListener('fetch', e => {
   navigator.serviceWorker.register(swUrl, { scope: './' })
     .then(() => URL.revokeObjectURL(swUrl))
     .catch(() => URL.revokeObjectURL(swUrl));
+})();
+
+// ── Right panel system ──────────────────────────────────────────────
+(function () {
+  const host     = document.getElementById('right-panel-host');
+  const navBtns  = Array.from(document.querySelectorAll('.nav-btn[data-panel]'));
+  const sections = Array.from(document.querySelectorAll('.panel-section'));
+
+  function closePanel() {
+    host.classList.remove('panel-open');
+    sections.forEach(s => s.classList.remove('panel-active'));
+    navBtns.forEach(b => b.classList.remove('active'));
+  }
+
+  function openPanel(panelId) {
+    sections.forEach(s => s.classList.toggle('panel-active', s.id === panelId));
+    host.classList.add('panel-open');
+  }
+
+  navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.panel;
+      const isActive = btn.classList.contains('active');
+      navBtns.forEach(b => b.classList.remove('active'));
+      if (isActive) {
+        closePanel();
+      } else {
+        btn.classList.add('active');
+        openPanel(panelId);
+      }
+    });
+  });
+
+  host.addEventListener('click', e => {
+    if (e.target.closest('.panel-close-btn')) closePanel();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && host.classList.contains('panel-open')) closePanel();
+  });
 })();
 </script>
 </body>
