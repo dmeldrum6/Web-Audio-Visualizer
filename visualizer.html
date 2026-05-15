@@ -77,30 +77,6 @@ html, body {
   min-height: 0;
 }
 
-/* ── Sidebar ── */
-#sidebar {
-  width: 260px;
-  min-width: 260px;
-  background: #1a1a1f;
-  border-right: 1px solid #26262d;
-  display: flex;
-  flex-direction: column;
-  padding: 18px 14px;
-  gap: 20px;
-  overflow-y: auto;
-  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease, opacity 0.25s ease;
-}
-
-#sidebar.recording-hidden {
-  width: 0;
-  min-width: 0;
-  padding-left: 0;
-  padding-right: 0;
-  overflow: hidden;
-  opacity: 0;
-  border-right: none;
-}
-
 /* ── Icon nav strip ── */
 #icon-nav {
   position: fixed;
@@ -283,13 +259,6 @@ html, body {
   font-size: 11px;
   height: 30px;
   gap: 5px;
-}
-
-/* ── Recording auto-hide note ── */
-#rec-autohide-note {
-  font-size: 10px;
-  color: #48484f;
-  white-space: nowrap;
 }
 
 /* ── YouTube Mode canvas layout ── */
@@ -503,56 +472,6 @@ html, body {
   font-size: 14px;
   color: #2a2a34;
   letter-spacing: 0.3px;
-}
-
-/* ── Collapsible control sections ── */
-.ctrl-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.ctrl-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  padding: 2px 0;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ctrl-section-header .section-label {
-  margin: 0;
-  transition: color 0.12s;
-}
-
-.ctrl-section-header:hover .section-label {
-  color: #686878;
-}
-
-.ctrl-arrow {
-  color: #44444e;
-  transition: transform 0.18s ease, color 0.12s;
-  flex-shrink: 0;
-}
-
-.ctrl-section-header:hover .ctrl-arrow {
-  color: #686878;
-}
-
-.ctrl-section.collapsed .ctrl-arrow {
-  transform: rotate(-90deg);
-}
-
-.ctrl-section-body {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ctrl-section.collapsed .ctrl-section-body {
-  display: none;
 }
 
 /* ── Control rows ── */
@@ -1427,6 +1346,15 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
   background: #2a2a33;
   color: #aaaabc;
 }
+
+.panel-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
 </style>
 </head>
 <body>
@@ -1462,7 +1390,6 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
         </svg>
         Record
       </button>
-      <span id="rec-autohide-note">Sidebar auto-hides during recording</span>
       <button class="btn" id="btn-copy-link">Copy link</button>
       <button class="btn" id="btn-shortcuts" title="Keyboard shortcuts (?)">?</button>
       <div id="file-info">
@@ -1564,558 +1491,6 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
         <div id="drawer-handle-bar"></div>
       </div>
 
-      <!-- Input source section -->
-      <div>
-        <div class="section-label">Input Source</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-
-          <button class="btn" id="btn-mic">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8"  y1="23" x2="16" y2="23"/>
-            </svg>
-            Use Mic
-          </button>
-
-          <button class="btn" id="btn-file">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 18V5l12-2v13"/>
-              <circle cx="6"  cy="18" r="3"/>
-              <circle cx="18" cy="16" r="3"/>
-            </svg>
-            Load File
-          </button>
-
-          <input type="file" id="file-input" accept="audio/*" style="display:none">
-        </div>
-        <div id="source-label">No source connected</div>
-      </div>
-
-      <!-- Level meter section -->
-      <div>
-        <div id="level-header">
-          <div class="section-label" style="margin:0">Level</div>
-          <div id="clip-badge">CLIP</div>
-        </div>
-        <div id="level-track">
-          <div id="level-bar"></div>
-        </div>
-      </div>
-
-      <!-- Visualizer Mode section -->
-      <div>
-        <div class="section-label">Visualizer Mode</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button class="btn active" id="btn-mode-bars">Bars</button>
-          <button class="btn" id="btn-mode-waveform">Waveform</button>
-          <button class="btn" id="btn-mode-spectrogram">Spectrogram</button>
-          <button class="btn" id="btn-mode-radial">Radial</button>
-          <button class="btn" id="btn-mode-particles">Particles</button>
-          <button class="btn" id="btn-mode-rings">Rings</button>
-          <button class="btn" id="btn-mode-scope">Scope</button>
-          <button class="btn" id="btn-mode-terrain">Terrain</button>
-        </div>
-      </div>
-
-      <!-- Analyzer section (collapsible) -->
-      <div class="ctrl-section" id="section-analyzer">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Analyzer</div>
-          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        <div class="ctrl-section-body">
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">FFT Size</span>
-            </div>
-            <select class="ctrl-select" id="ctrl-fft-size">
-              <option value="2048">2048</option>
-              <option value="4096">4096</option>
-              <option value="8192" selected>8192</option>
-              <option value="16384">16384</option>
-              <option value="32768">32768</option>
-            </select>
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Smoothing</span>
-              <span class="ctrl-value" id="val-smoothing">0.80</span>
-            </div>
-            <input type="range" id="ctrl-smoothing" min="0" max="0.95" step="0.01" value="0.80">
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Gain</span>
-              <span class="ctrl-value" id="val-gain">1.0</span>
-            </div>
-            <input type="range" id="ctrl-gain" min="0.1" max="4.0" step="0.1" value="1.0">
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Visuals section (collapsible) -->
-      <div class="ctrl-section" id="section-visuals">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Visuals</div>
-          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        <div class="ctrl-section-body">
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Motion Amount</span>
-              <span class="ctrl-value" id="val-motion">0.50</span>
-            </div>
-            <input type="range" id="ctrl-motion" min="0" max="1" step="0.01" value="0.5">
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Trail</span>
-              <span class="ctrl-value" id="val-trail">0.00</span>
-            </div>
-            <input type="range" id="ctrl-trail" min="0" max="0.95" step="0.01" value="0">
-          </div>
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Mirror (Bars)</span>
-            <button class="toggle-btn" id="ctrl-mirror" aria-label="Toggle mirror"></button>
-          </div>
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Fill (Waveform)</span>
-            <button class="toggle-btn active" id="ctrl-fill" aria-label="Toggle fill"></button>
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Bar Count</span>
-              <span class="ctrl-value" id="val-barcount">128</span>
-            </div>
-            <input type="range" id="ctrl-barcount" min="32" max="256" step="4" value="128">
-          </div>
-
-          <div class="ctrl-row" id="row-density" style="display:none">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Density</span>
-              <span class="ctrl-value" id="val-density">200</span>
-            </div>
-            <input type="range" id="ctrl-density" min="50" max="400" step="10" value="200">
-          </div>
-
-          <div class="toggle-row" id="row-scope-mode" style="display:none">
-            <span class="ctrl-label">Mono phase delay</span>
-            <button class="toggle-btn" id="ctrl-scope-mono-delay" aria-label="Toggle mono phase delay"></button>
-          </div>
-
-          <div class="ctrl-row" id="row-terrain-speed" style="display:none">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Speed</span>
-              <span class="ctrl-value" id="val-terrain-speed">1</span>
-            </div>
-            <input type="range" id="ctrl-terrain-speed" min="1" max="3" step="1" value="1">
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Bloom</span>
-              <span class="ctrl-value" id="val-bloom">Off</span>
-            </div>
-            <input type="range" id="ctrl-bloom" min="0" max="5" step="1" value="0">
-          </div>
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Progress Bar</span>
-            <button class="toggle-btn" id="ctrl-progress-bar" aria-label="Toggle progress bar"></button>
-          </div>
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Show Timer</span>
-            <button class="toggle-btn" id="ctrl-show-timer" aria-label="Toggle elapsed timer"></button>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Presets section (collapsible) -->
-      <div class="ctrl-section" id="section-presets">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Presets</div>
-          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        <div class="ctrl-section-body">
-          <div class="preset-grid" id="preset-grid"></div>
-          <button class="btn" id="btn-save-preset" style="margin-top:2px">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-              <polyline points="17 21 17 13 7 13 7 21"/>
-              <polyline points="7 3 7 8 15 8"/>
-            </svg>
-            Save current
-          </button>
-        </div>
-      </div>
-
-      <!-- Theme section -->
-      <div>
-        <div class="section-label">Theme</div>
-        <div class="swatch-grid" id="swatch-grid"></div>
-      </div>
-
-      <!-- Text Overlay section (collapsible) -->
-      <div class="ctrl-section collapsed" id="section-overlay">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Text Overlay</div>
-          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        <div class="ctrl-section-body">
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Enable</span>
-            <button class="toggle-btn" id="ctrl-overlay-enabled" aria-label="Toggle text overlay"></button>
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label">Text</span>
-            <input type="text" class="text-input" id="ctrl-overlay-text"
-                   maxlength="80" placeholder="Enter overlay text…">
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Font Size</span>
-              <span class="ctrl-value" id="val-overlay-fontsize">48px</span>
-            </div>
-            <input type="range" id="ctrl-overlay-fontsize" min="24" max="120" step="1" value="48">
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Font</span>
-            <select class="ctrl-select" id="ctrl-overlay-fontfamily">
-              <option value="sans-serif">Sans-serif</option>
-              <option value="serif">Serif</option>
-              <option value="monospace">Monospace</option>
-              <option value="Impact">Impact</option>
-              <option value="cursive">Cursive</option>
-            </select>
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Color &amp; Opacity</span>
-            <div class="overlay-color-row">
-              <input type="color" id="ctrl-overlay-color" value="#ffffff" title="Text color">
-              <div class="overlay-color-opacity">
-                <div class="ctrl-row-header">
-                  <span class="ctrl-label">Opacity</span>
-                  <span class="ctrl-value" id="val-overlay-opacity">1.0</span>
-                </div>
-                <input type="range" id="ctrl-overlay-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
-              </div>
-            </div>
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Style</span>
-            <div class="style-grid" id="overlay-style-grid"></div>
-          </div>
-
-          <!-- Lower-third specific controls (shown only when lower-third style is active) -->
-          <div id="lower-third-controls" style="display:none">
-
-            <div class="ctrl-row">
-              <span class="ctrl-label">Subtitle</span>
-              <input type="text" class="text-input" id="ctrl-overlay-subtext"
-                     maxlength="80" placeholder="Artist / subtitle…">
-            </div>
-
-            <div class="ctrl-row">
-              <div class="ctrl-row-header">
-                <span class="ctrl-label">Duration</span>
-                <span class="ctrl-value" id="val-overlay-duration">Always</span>
-              </div>
-              <input type="range" id="ctrl-overlay-duration" min="0" max="30" step="1" value="0">
-            </div>
-
-            <button class="btn" id="btn-show-lower-third">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="14" width="20" height="8" rx="1.5"/>
-                <line x1="2" y1="10" x2="10" y2="10" opacity="0.5"/>
-              </svg>
-              Show Lower Third
-            </button>
-
-          </div>
-
-          <div class="preview-note">Text renders live on canvas</div>
-
-        </div>
-      </div>
-
-      <!-- Background section (collapsible) -->
-      <div class="ctrl-section collapsed" id="section-background">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Background</div>
-          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        <div class="ctrl-section-body">
-
-          <input type="file" id="bg-file-input" accept="image/*" style="display:none">
-          <button class="btn" id="btn-load-bg">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            Load Image
-          </button>
-
-          <img id="bg-thumbnail" alt="Background preview">
-
-          <button class="btn" id="btn-clear-bg" style="display:none">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6"  y1="6" x2="18" y2="18"/>
-            </svg>
-            Clear
-          </button>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Opacity</span>
-              <span class="ctrl-value" id="val-bg-opacity">1.0</span>
-            </div>
-            <input type="range" id="ctrl-bg-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Blend Mode</span>
-            <select class="ctrl-select" id="ctrl-bg-blend">
-              <option value="normal">Normal</option>
-              <option value="multiply">Multiply</option>
-              <option value="screen">Screen</option>
-              <option value="overlay">Overlay</option>
-              <option value="soft-light">Soft Light</option>
-            </select>
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Fit</span>
-            <div class="fit-btn-grid" id="fit-btn-grid"></div>
-          </div>
-
-          <div class="ctrl-row" style="margin-top:10px">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Center Shape</span>
-            <div class="fit-btn-grid" style="grid-template-columns:repeat(3,1fr)" id="shape-btn-grid">
-              <button class="fit-btn active" data-shape="circle">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="9"/>
-                </svg>
-                Circle
-              </button>
-              <button class="fit-btn" data-shape="square">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="4" y="4" width="16" height="16" rx="1"/>
-                </svg>
-                Square
-              </button>
-              <button class="fit-btn" data-shape="triangle">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="12,3 22,21 2,21"/>
-                </svg>
-                Triangle
-              </button>
-            </div>
-          </div>
-
-          <div class="ctrl-row" style="margin-top:10px">
-            <span class="ctrl-label" style="margin-bottom:6px;display:block">Radial Center Image</span>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <input type="file" id="radial-img-file-input" accept="image/*" style="display:none">
-              <button class="btn" id="btn-load-radial-img">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-                Load
-              </button>
-              <img id="radial-img-thumbnail" alt="Radial center image preview">
-              <button class="btn" id="btn-clear-radial-img" style="display:none">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6"  y1="6" x2="18" y2="18"/>
-                </svg>
-                Clear
-              </button>
-            </div>
-            <div class="ctrl-row" style="margin-top:8px">
-              <div class="ctrl-row-header">
-                <span class="ctrl-label">Opacity</span>
-                <span class="ctrl-value" id="val-radial-img-opacity">1.0</span>
-              </div>
-              <input type="range" id="ctrl-radial-img-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
-            </div>
-          </div>
-
-          <p class="bg-note">Images are saved locally only and not included in shared links</p>
-
-        </div>
-      </div>
-
-      <!-- Beat FX section (collapsible) -->
-      <div class="ctrl-section collapsed" id="section-beat">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Beat FX</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div id="beat-dot"></div>
-            <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
-        </div>
-        <div class="ctrl-section-body">
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Enable</span>
-            <button class="toggle-btn active" id="ctrl-beat-enabled" aria-label="Toggle beat detection"></button>
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Sensitivity</span>
-              <span class="ctrl-value" id="val-beat-sensitivity">1.40</span>
-            </div>
-            <input type="range" id="ctrl-beat-sensitivity" min="1.1" max="2.0" step="0.05" value="1.4">
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Artist Card section (collapsible) -->
-      <div class="ctrl-section collapsed" id="section-artist-card">
-        <div class="ctrl-section-header">
-          <div class="section-label" style="margin:0">Artist Card</div>
-          <svg class="ctrl-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        <div class="ctrl-section-body">
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Enable</span>
-            <button class="toggle-btn" id="ctrl-artist-card-enabled" aria-label="Toggle artist card"></button>
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label">Artist Name</span>
-            <input type="text" class="text-input" id="ctrl-artist-name"
-                   maxlength="40" placeholder="Artist name…">
-          </div>
-
-          <div class="ctrl-row">
-            <span class="ctrl-label">Track Title</span>
-            <input type="text" class="text-input" id="ctrl-track-title"
-                   maxlength="60" placeholder="Track title…">
-          </div>
-
-          <input type="file" id="artist-img-file-input" accept="image/jpeg,image/png" style="display:none">
-          <button class="btn" id="btn-load-artist-img">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            Load Image
-          </button>
-
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <img id="artist-img-thumbnail" alt="Artist image preview">
-            <button class="btn" id="btn-clear-artist-img" style="display:none;flex:1">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6"  y1="6" x2="18" y2="18"/>
-              </svg>
-              Clear
-            </button>
-          </div>
-
-          <div class="ctrl-row">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Opacity</span>
-              <span class="ctrl-value" id="val-artist-card-opacity">1.0</span>
-            </div>
-            <input type="range" id="ctrl-artist-card-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
-          </div>
-
-          <div class="toggle-row">
-            <span class="ctrl-label">Record Timer</span>
-            <button class="toggle-btn" id="ctrl-artist-card-timer-enabled" aria-label="Toggle artist card record timer"></button>
-          </div>
-
-          <div class="ctrl-row" id="row-artist-card-timer-duration" style="display:none">
-            <div class="ctrl-row-header">
-              <span class="ctrl-label">Timer Duration</span>
-              <span class="ctrl-value" id="val-artist-card-timer-duration">5s</span>
-            </div>
-            <input type="range" id="ctrl-artist-card-timer-duration" min="1" max="30" step="1" value="5">
-          </div>
-
-          <p class="preview-note">Image not saved in presets or shared links</p>
-
-        </div>
-      </div>
-
-      <div style="flex:1"></div>
     </div><!-- /sidebar -->
 
     <!-- Canvas area -->
@@ -2156,6 +1531,46 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <span class="panel-header-title">Audio Input</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
     </div>
+    <div class="panel-body">
+      <div class="section-label">Input Source</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+
+        <button class="btn" id="btn-mic">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8"  y1="23" x2="16" y2="23"/>
+          </svg>
+          Use Mic
+        </button>
+
+        <button class="btn" id="btn-file">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"/>
+            <circle cx="6"  cy="18" r="3"/>
+            <circle cx="18" cy="16" r="3"/>
+          </svg>
+          Load File
+        </button>
+
+        <input type="file" id="file-input" accept="audio/*" style="display:none">
+      </div>
+      <div id="source-label">No source connected</div>
+      <div>
+        <div id="level-header">
+          <div class="section-label" style="margin:0">Level</div>
+          <div id="clip-badge">CLIP</div>
+        </div>
+        <div id="level-track">
+          <div id="level-bar"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="panel-playback" class="panel-section">
@@ -2163,12 +1578,25 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <span class="panel-header-title">Playback</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
     </div>
+    <div class="panel-body"></div>
   </div>
 
   <div id="panel-mode" class="panel-section">
     <div class="panel-header">
       <span class="panel-header-title">Mode</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn active" id="btn-mode-bars">Bars</button>
+        <button class="btn" id="btn-mode-waveform">Waveform</button>
+        <button class="btn" id="btn-mode-spectrogram">Spectrogram</button>
+        <button class="btn" id="btn-mode-radial">Radial</button>
+        <button class="btn" id="btn-mode-particles">Particles</button>
+        <button class="btn" id="btn-mode-rings">Rings</button>
+        <button class="btn" id="btn-mode-scope">Scope</button>
+        <button class="btn" id="btn-mode-terrain">Terrain</button>
+      </div>
     </div>
   </div>
 
@@ -2177,12 +1605,120 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <span class="panel-header-title">Analyzer</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
     </div>
+    <div class="panel-body">
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">FFT Size</span>
+        </div>
+        <select class="ctrl-select" id="ctrl-fft-size">
+          <option value="2048">2048</option>
+          <option value="4096">4096</option>
+          <option value="8192" selected>8192</option>
+          <option value="16384">16384</option>
+          <option value="32768">32768</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Smoothing</span>
+          <span class="ctrl-value" id="val-smoothing">0.80</span>
+        </div>
+        <input type="range" id="ctrl-smoothing" min="0" max="0.95" step="0.01" value="0.80">
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Gain</span>
+          <span class="ctrl-value" id="val-gain">1.0</span>
+        </div>
+        <input type="range" id="ctrl-gain" min="0.1" max="4.0" step="0.1" value="1.0">
+      </div>
+
+    </div>
   </div>
 
   <div id="panel-visuals" class="panel-section">
     <div class="panel-header">
       <span class="panel-header-title">Visuals</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Motion Amount</span>
+          <span class="ctrl-value" id="val-motion">0.50</span>
+        </div>
+        <input type="range" id="ctrl-motion" min="0" max="1" step="0.01" value="0.5">
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Trail</span>
+          <span class="ctrl-value" id="val-trail">0.00</span>
+        </div>
+        <input type="range" id="ctrl-trail" min="0" max="0.95" step="0.01" value="0">
+      </div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Mirror (Bars)</span>
+        <button class="toggle-btn" id="ctrl-mirror" aria-label="Toggle mirror"></button>
+      </div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Fill (Waveform)</span>
+        <button class="toggle-btn active" id="ctrl-fill" aria-label="Toggle fill"></button>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Bar Count</span>
+          <span class="ctrl-value" id="val-barcount">128</span>
+        </div>
+        <input type="range" id="ctrl-barcount" min="32" max="256" step="4" value="128">
+      </div>
+
+      <div class="ctrl-row" id="row-density" style="display:none">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Density</span>
+          <span class="ctrl-value" id="val-density">200</span>
+        </div>
+        <input type="range" id="ctrl-density" min="50" max="400" step="10" value="200">
+      </div>
+
+      <div class="toggle-row" id="row-scope-mode" style="display:none">
+        <span class="ctrl-label">Mono phase delay</span>
+        <button class="toggle-btn" id="ctrl-scope-mono-delay" aria-label="Toggle mono phase delay"></button>
+      </div>
+
+      <div class="ctrl-row" id="row-terrain-speed" style="display:none">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Speed</span>
+          <span class="ctrl-value" id="val-terrain-speed">1</span>
+        </div>
+        <input type="range" id="ctrl-terrain-speed" min="1" max="3" step="1" value="1">
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Bloom</span>
+          <span class="ctrl-value" id="val-bloom">Off</span>
+        </div>
+        <input type="range" id="ctrl-bloom" min="0" max="5" step="1" value="0">
+      </div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Progress Bar</span>
+        <button class="toggle-btn" id="ctrl-progress-bar" aria-label="Toggle progress bar"></button>
+      </div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Show Timer</span>
+        <button class="toggle-btn" id="ctrl-show-timer" aria-label="Toggle elapsed timer"></button>
+      </div>
+
     </div>
   </div>
 
@@ -2191,12 +1727,144 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <span class="panel-header-title">Beat</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
     </div>
+    <div class="panel-body">
+
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div id="beat-dot"></div>
+        <span>Beat indicator</span>
+      </div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Enable</span>
+        <button class="toggle-btn active" id="ctrl-beat-enabled" aria-label="Toggle beat detection"></button>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Sensitivity</span>
+          <span class="ctrl-value" id="val-beat-sensitivity">1.40</span>
+        </div>
+        <input type="range" id="ctrl-beat-sensitivity" min="1.1" max="2.0" step="0.05" value="1.4">
+      </div>
+
+    </div>
   </div>
 
   <div id="panel-bg" class="panel-section">
     <div class="panel-header">
       <span class="panel-header-title">Background</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <input type="file" id="bg-file-input" accept="image/*" style="display:none">
+      <button class="btn" id="btn-load-bg">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        Load Image
+      </button>
+
+      <img id="bg-thumbnail" alt="Background preview">
+
+      <button class="btn" id="btn-clear-bg" style="display:none">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+        Clear
+      </button>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Opacity</span>
+          <span class="ctrl-value" id="val-bg-opacity">1.0</span>
+        </div>
+        <input type="range" id="ctrl-bg-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Blend Mode</span>
+        <select class="ctrl-select" id="ctrl-bg-blend">
+          <option value="normal">Normal</option>
+          <option value="multiply">Multiply</option>
+          <option value="screen">Screen</option>
+          <option value="overlay">Overlay</option>
+          <option value="soft-light">Soft Light</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Fit</span>
+        <div class="fit-btn-grid" id="fit-btn-grid"></div>
+      </div>
+
+      <div class="ctrl-row" style="margin-top:10px">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Center Shape</span>
+        <div class="fit-btn-grid" style="grid-template-columns:repeat(3,1fr)" id="shape-btn-grid">
+          <button class="fit-btn active" data-shape="circle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+            Circle
+          </button>
+          <button class="fit-btn" data-shape="square">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="4" width="16" height="16" rx="1"/>
+            </svg>
+            Square
+          </button>
+          <button class="fit-btn" data-shape="triangle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12,3 22,21 2,21"/>
+            </svg>
+            Triangle
+          </button>
+        </div>
+      </div>
+
+      <div class="ctrl-row" style="margin-top:10px">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Radial Center Image</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="file" id="radial-img-file-input" accept="image/*" style="display:none">
+          <button class="btn" id="btn-load-radial-img">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Load
+          </button>
+          <img id="radial-img-thumbnail" alt="Radial center image preview">
+          <button class="btn" id="btn-clear-radial-img" style="display:none">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6"  y1="6" x2="18" y2="18"/>
+            </svg>
+            Clear
+          </button>
+        </div>
+        <div class="ctrl-row" style="margin-top:8px">
+          <div class="ctrl-row-header">
+            <span class="ctrl-label">Opacity</span>
+            <span class="ctrl-value" id="val-radial-img-opacity">1.0</span>
+          </div>
+          <input type="range" id="ctrl-radial-img-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+        </div>
+      </div>
+
+      <p class="bg-note">Images are saved locally only and not included in shared links</p>
+
     </div>
   </div>
 
@@ -2205,6 +1873,10 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <span class="panel-header-title">Themes</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
     </div>
+    <div class="panel-body">
+      <div class="section-label">Theme</div>
+      <div class="swatch-grid" id="swatch-grid"></div>
+    </div>
   </div>
 
   <div id="panel-presets" class="panel-section">
@@ -2212,12 +1884,175 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <span class="panel-header-title">Presets</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
     </div>
+    <div class="panel-body">
+      <div class="preset-grid" id="preset-grid"></div>
+      <button class="btn" id="btn-save-preset" style="margin-top:2px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Save current
+      </button>
+    </div>
   </div>
 
   <div id="panel-text" class="panel-section">
     <div class="panel-header">
       <span class="panel-header-title">Text Overlay</span>
       <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Enable</span>
+        <button class="toggle-btn" id="ctrl-overlay-enabled" aria-label="Toggle text overlay"></button>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">Text</span>
+        <input type="text" class="text-input" id="ctrl-overlay-text"
+               maxlength="80" placeholder="Enter overlay text…">
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Font Size</span>
+          <span class="ctrl-value" id="val-overlay-fontsize">48px</span>
+        </div>
+        <input type="range" id="ctrl-overlay-fontsize" min="24" max="120" step="1" value="48">
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Font</span>
+        <select class="ctrl-select" id="ctrl-overlay-fontfamily">
+          <option value="sans-serif">Sans-serif</option>
+          <option value="serif">Serif</option>
+          <option value="monospace">Monospace</option>
+          <option value="Impact">Impact</option>
+          <option value="cursive">Cursive</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Color &amp; Opacity</span>
+        <div class="overlay-color-row">
+          <input type="color" id="ctrl-overlay-color" value="#ffffff" title="Text color">
+          <div class="overlay-color-opacity">
+            <div class="ctrl-row-header">
+              <span class="ctrl-label">Opacity</span>
+              <span class="ctrl-value" id="val-overlay-opacity">1.0</span>
+            </div>
+            <input type="range" id="ctrl-overlay-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Style</span>
+        <div class="style-grid" id="overlay-style-grid"></div>
+      </div>
+
+      <!-- Lower-third specific controls (shown only when lower-third style is active) -->
+      <div id="lower-third-controls" style="display:none">
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Subtitle</span>
+          <input type="text" class="text-input" id="ctrl-overlay-subtext"
+                 maxlength="80" placeholder="Artist / subtitle…">
+        </div>
+
+        <div class="ctrl-row">
+          <div class="ctrl-row-header">
+            <span class="ctrl-label">Duration</span>
+            <span class="ctrl-value" id="val-overlay-duration">Always</span>
+          </div>
+          <input type="range" id="ctrl-overlay-duration" min="0" max="30" step="1" value="0">
+        </div>
+
+        <button class="btn" id="btn-show-lower-third">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="14" width="20" height="8" rx="1.5"/>
+            <line x1="2" y1="10" x2="10" y2="10" opacity="0.5"/>
+          </svg>
+          Show Lower Third
+        </button>
+
+      </div>
+
+      <div class="preview-note">Text renders live on canvas</div>
+
+      <div class="section-label" style="margin-top:8px">Artist Card</div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Enable</span>
+        <button class="toggle-btn" id="ctrl-artist-card-enabled" aria-label="Toggle artist card"></button>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">Artist Name</span>
+        <input type="text" class="text-input" id="ctrl-artist-name"
+               maxlength="40" placeholder="Artist name…">
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">Track Title</span>
+        <input type="text" class="text-input" id="ctrl-track-title"
+               maxlength="60" placeholder="Track title…">
+      </div>
+
+      <input type="file" id="artist-img-file-input" accept="image/jpeg,image/png" style="display:none">
+      <button class="btn" id="btn-load-artist-img">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        Load Image
+      </button>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <img id="artist-img-thumbnail" alt="Artist image preview">
+        <button class="btn" id="btn-clear-artist-img" style="display:none;flex:1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6"  y1="6" x2="18" y2="18"/>
+          </svg>
+          Clear
+        </button>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Opacity</span>
+          <span class="ctrl-value" id="val-artist-card-opacity">1.0</span>
+        </div>
+        <input type="range" id="ctrl-artist-card-opacity" min="0.1" max="1.0" step="0.01" value="1.0">
+      </div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Record Timer</span>
+        <button class="toggle-btn" id="ctrl-artist-card-timer-enabled" aria-label="Toggle artist card record timer"></button>
+      </div>
+
+      <div class="ctrl-row" id="row-artist-card-timer-duration" style="display:none">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Timer Duration</span>
+          <span class="ctrl-value" id="val-artist-card-timer-duration">5s</span>
+        </div>
+        <input type="range" id="ctrl-artist-card-timer-duration" min="1" max="30" step="1" value="5">
+      </div>
+
+      <p class="preview-note">Image not saved in presets or shared links</p>
+
     </div>
   </div>
 
@@ -5124,7 +4959,6 @@ function stopRecording() {
   recWarnTimer     = null;
   isRecording      = false;
   updateRecordUI();
-  sidebar.classList.remove('recording-hidden');
   recorder.stop();
   recorder = null;
 }
@@ -5173,7 +5007,6 @@ async function startRecording() {
   recordStartTime  = Date.now();
   isRecording      = true;
   updateRecordUI();
-  sidebar.classList.add('recording-hidden');
 
   /* Trigger artist card display timer if enabled */
   if (params.artistCardTimerEnabled && params.artistCardEnabled) {
@@ -5556,16 +5389,6 @@ document.getElementById('btn-mode-scope').addEventListener('click', () => {
 document.getElementById('btn-mode-terrain').addEventListener('click', () => {
   switchModeAnimated('terrain');
   markModified();
-});
-
-
-/* ═══════════════════════════════════════════════════════════════
-   COLLAPSIBLE SECTIONS
-═══════════════════════════════════════════════════════════════ */
-document.getElementById('sidebar').addEventListener('click', e => {
-  const header = e.target.closest('.ctrl-section-header');
-  if (!header) return;
-  header.closest('.ctrl-section').classList.toggle('collapsed');
 });
 
 
