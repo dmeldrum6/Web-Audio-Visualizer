@@ -2,8 +2,8 @@
 
 A browser-based audio visualizer that reacts in real time to your microphone or local audio files. Create live visuals, record clips for YouTube and social media, or use it as an ambient display — all from a single HTML file with no install required.
 
-<img width="1916" height="908" alt="image" src="https://github.com/user-attachments/assets/6fd87d62-e433-467e-8fd5-316090911c64" />
-*Bars mode with the Midnight theme*
+<img width="1917" height="901" alt="image" src="https://github.com/user-attachments/assets/068002af-dc16-4fbb-9466-bbd4da53ada8" />
+*Radial mode with ember theme*
 
 ---
 
