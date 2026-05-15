@@ -101,6 +101,78 @@ html, body {
   border-right: none;
 }
 
+/* ── Icon nav strip ── */
+#icon-nav {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 52px;
+  height: 100vh;
+  background: #1a1a1f;
+  border-right: 1px solid #26262d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 56px;
+  gap: 2px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  min-height: 46px;
+  padding: 5px 2px;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  color: #666674;
+  font-family: inherit;
+  cursor: pointer;
+  gap: 3px;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  outline: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-btn .nav-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.nav-btn .nav-label {
+  font-size: 9px;
+  line-height: 1;
+  color: #44444e;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background: #22222a;
+  color: #9999aa;
+}
+
+.nav-btn:hover .nav-label {
+  color: #666674;
+}
+
+.nav-btn.active {
+  border-left-color: var(--accent-color);
+  background: #1e2028;
+  color: #c8c8d8;
+}
+
+.nav-btn.active .nav-label {
+  color: #8888a0;
+}
+
 .section-label {
   font-size: 10px;
   font-weight: 700;
@@ -1344,6 +1416,50 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
       <option value="2">2×</option>
     </select>
   </div>
+
+  <!-- Icon nav strip -->
+  <nav id="icon-nav" aria-label="Section navigation">
+    <button class="nav-btn" id="nav-audio"    data-panel="panel-audio"    title="Audio Input">
+      <span class="nav-icon">🎙</span>
+      <span class="nav-label">Audio</span>
+    </button>
+    <button class="nav-btn" id="nav-playback" data-panel="panel-playback" title="Playback">
+      <span class="nav-icon">▶</span>
+      <span class="nav-label">Play</span>
+    </button>
+    <button class="nav-btn" id="nav-mode"     data-panel="panel-mode"     title="Mode">
+      <span class="nav-icon">🌊</span>
+      <span class="nav-label">Mode</span>
+    </button>
+    <button class="nav-btn" id="nav-analyzer" data-panel="panel-analyzer" title="Analyzer">
+      <span class="nav-icon">🎛</span>
+      <span class="nav-label">Analyzer</span>
+    </button>
+    <button class="nav-btn" id="nav-visuals"  data-panel="panel-visuals"  title="Visuals">
+      <span class="nav-icon">✨</span>
+      <span class="nav-label">Visuals</span>
+    </button>
+    <button class="nav-btn" id="nav-beat"     data-panel="panel-beat"     title="Beat">
+      <span class="nav-icon">🥁</span>
+      <span class="nav-label">Beat</span>
+    </button>
+    <button class="nav-btn" id="nav-bg"       data-panel="panel-bg"       title="Background">
+      <span class="nav-icon">🖼</span>
+      <span class="nav-label">BG</span>
+    </button>
+    <button class="nav-btn" id="nav-themes"   data-panel="panel-themes"   title="Themes">
+      <span class="nav-icon">🎨</span>
+      <span class="nav-label">Themes</span>
+    </button>
+    <button class="nav-btn" id="nav-presets"  data-panel="panel-presets"  title="Presets">
+      <span class="nav-icon">💾</span>
+      <span class="nav-label">Presets</span>
+    </button>
+    <button class="nav-btn" id="nav-text"     data-panel="panel-text"     title="Text Overlay">
+      <span class="nav-icon" style="font-size:14px;font-weight:600;font-style:normal;color:inherit;">Aa</span>
+      <span class="nav-label">Text</span>
+    </button>
+  </nav>
 
   <!-- Body -->
   <div id="body-row">
