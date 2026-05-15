@@ -40,6 +40,7 @@ html, body {
   height: 48px;
   min-height: 48px;
   padding: 0 18px;
+  margin-left: 52px;
   background: #1a1a1f;
   border-bottom: 1px solid #26262d;
   z-index: 10;
@@ -75,6 +76,7 @@ html, body {
   display: flex;
   flex: 1;
   min-height: 0;
+  margin-left: 52px;
 }
 
 /* ── Icon nav strip ── */
@@ -906,6 +908,10 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 767px) {
   #fps-counter { display: none; }
 
+  #topbar    { margin-left: 0; }
+  #playback-bar { margin-left: 0; }
+  #body-row  { margin-left: 0; }
+
   #canvas-wrap {
     position: fixed;
     top: 48px;
@@ -957,6 +963,7 @@ input[type="range"]::-moz-range-thumb {
   height: 52px;
   min-height: 52px;
   padding: 0 14px;
+  margin-left: 52px;
   background: #1a1a1f;
   border-bottom: 1px solid #26262d;
   gap: 8px;
