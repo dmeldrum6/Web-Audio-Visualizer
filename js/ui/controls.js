@@ -19,9 +19,9 @@ let _markModifiedFn     = null;
 let _toggleRecordFn     = null;
 let _cycleModeFn        = null;
 let _getLayerManagerFn  = null;
-let _enableYtModeFn     = null;
-let _disableYtModeFn    = null;
-let _updateYtLabelFn    = null;
+let _enableYtModeFn_ctrl  = null;
+let _disableYtModeFn_ctrl = null;
+let _updateYtLabelFn      = null;
 
 function initControls({
   getCurrentMode, setCurrentMode,
@@ -42,8 +42,8 @@ function initControls({
   _toggleRecordFn    = toggleRecording;
   _cycleModeFn       = cycleMode;
   _getLayerManagerFn = getLayerManager;
-  _enableYtModeFn    = enableYtMode;
-  _disableYtModeFn   = disableYtMode;
+  _enableYtModeFn_ctrl  = enableYtMode;
+  _disableYtModeFn_ctrl = disableYtMode;
   _updateYtLabelFn   = updateYtModeLabel;
 }
 
