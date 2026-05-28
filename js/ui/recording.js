@@ -62,6 +62,15 @@ function saveRecording() {
   recordChunks = [];
 }
 
+let _enableYtModeFn  = null;
+let _disableYtModeFn = null;
+let _wasInYtMode     = false;
+
+function initRecordingResolution(enableYtMode, disableYtMode) {
+  _enableYtModeFn  = enableYtMode;
+  _disableYtModeFn = disableYtMode;
+}
+
 function stopRecording() {
   if (!isRecording || !recorder) return;
   clearInterval(recTimerInterval);
@@ -78,15 +87,6 @@ function stopRecording() {
   if (!_wasInYtMode && _disableYtModeFn) {
     _disableYtModeFn();
   }
-}
-
-let _enableYtModeFn  = null;
-let _disableYtModeFn = null;
-let _wasInYtMode     = false;
-
-function initRecordingResolution(enableYtMode, disableYtMode) {
-  _enableYtModeFn  = enableYtMode;
-  _disableYtModeFn = disableYtMode;
 }
 
 async function startRecording(canvas) {
