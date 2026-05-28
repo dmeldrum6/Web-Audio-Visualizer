@@ -1,8 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    THEMES
 ═══════════════════════════════════════════════════════════════ */
-import { params } from './params.js';
-
 export const THEMES = [
   { name: 'Midnight',   bgColor: '#080c18', accentColor: '#1a3888', highlightColor: '#40d8ff', midColor: '#2060c0' },
   { name: 'Ember',      bgColor: '#0e0604', accentColor: '#8c1a00', highlightColor: '#ff6428', midColor: '#c03010' },
@@ -42,21 +40,21 @@ export function hexToHue(hex) {
 }
 
 export function hexToHsl(hex) {
-  let [r, g, b] = hexToRgb(hex);
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let [r, g2, b] = hexToRgb(hex);
+  r /= 255; g2 /= 255; b /= 255;
+  const max = Math.max(r, g2, b), min = Math.min(r, g2, b);
   const l   = (max + min) / 2;
   if (max === min) return [0, 0, l * 100];
   const d = max - min;
   const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
   let h;
-  if      (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else                h = ((r - g) / d + 4) / 6;
+  if      (max === r)  h = ((g2 - b) / d + (g2 < b ? 6 : 0)) / 6;
+  else if (max === g2) h = ((b  - r) / d + 2) / 6;
+  else                 h = ((r  - g2) / d + 4) / 6;
   return [h * 360, s * 100, l * 100];
 }
 
-/* Heat LUT — 256-entry RGB arrays, rebuilt on every applyTheme() */
+/* Heat colour lookup tables */
 export const heatR = new Uint8Array(256);
 export const heatG = new Uint8Array(256);
 export const heatB = new Uint8Array(256);
@@ -87,52 +85,13 @@ export function buildHeat(bgHex, accentHex, midHex, highlightHex) {
   }
 }
 
-/* Gradient background hue base — updated by applyTheme(), read by background.js */
-export let gradHueBase = hexToHsl(THEMES[0].accentColor)[0];
-
-/* Initialize heat LUT for the default theme */
 buildHeat(THEMES[0].bgColor, THEMES[0].accentColor, THEMES[0].midColor, THEMES[0].highlightColor);
 
-/* Bars gradient cache — invalidated on resize or theme change */
-export let barsGradH = -1;
-export function setBarsGradH(v) { barsGradH = v; }
+/* gradHueBase is used by gradient background and applyTheme */
+export let gradHueBase = hexToHsl(THEMES[0].accentColor)[0];
+export function setGradHueBase(val) { gradHueBase = val; }
 
-/* Vignette gradient cache — invalidated on resize */
-export let vignetteW = -1, vignetteH = -1;
-export function setVignetteSize(w, h) { vignetteW = w; vignetteH = h; }
-
-export function applyTheme(index, { canvasWrap, spectroCtx2, spectroSW, spectroSH } = {}) {
-  params.theme    = index;
-  params.themeName = THEMES[index].name;
-  const t = THEMES[index];
-
-  THEME.bgColor   = t.bgColor;
-  THEME.accent    = t.accentColor;
-  THEME.highlight = t.highlightColor;
-  THEME.mid       = t.midColor;
-  THEME.waveRGB   = hexToRgb(t.highlightColor);
-  gradHueBase     = hexToHsl(t.accentColor)[0];
-
-  document.documentElement.style.setProperty('--accent-color', t.highlightColor);
-
-  barsGradH = -1;
-  vignetteW = -1;
-
-  if (canvasWrap) canvasWrap.style.background = t.bgColor;
-
-  buildHeat(t.bgColor, t.accentColor, t.midColor, t.highlightColor);
-
-  if (spectroCtx2) {
-    spectroCtx2.fillStyle = t.bgColor;
-    spectroCtx2.fillRect(0, 0, spectroSW, spectroSH);
-  }
-
-  document.querySelectorAll('.swatch').forEach((sw, i) => {
-    sw.classList.toggle('active', i === index);
-  });
-}
-
-export function buildSwatches(markModifiedFn) {
+export function buildSwatches(onThemeClick) {
   const grid = document.getElementById('swatch-grid');
   THEMES.forEach((t, i) => {
     const sw = document.createElement('div');
@@ -146,7 +105,6 @@ export function buildSwatches(markModifiedFn) {
   grid.addEventListener('click', e => {
     const sw = e.target.closest('.swatch');
     if (!sw) return;
-    applyTheme(parseInt(sw.dataset.themeIndex, 10));
-    if (markModifiedFn) markModifiedFn();
+    onThemeClick(parseInt(sw.dataset.themeIndex, 10));
   });
 }

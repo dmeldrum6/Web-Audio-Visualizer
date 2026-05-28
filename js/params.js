@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
    PARAMS  — single source of truth for all control state
-   Exported as a mutable singleton; all modules import and mutate directly.
 ═══════════════════════════════════════════════════════════════ */
 export const params = {
   mode:         'bars',
