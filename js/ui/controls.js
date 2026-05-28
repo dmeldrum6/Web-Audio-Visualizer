@@ -3,21 +3,25 @@ let modeTransition = null; // { target, startTime }
 function clearModeTransition() { modeTransition = null; }
 
 /* These are set by main.js to avoid circular imports */
-let _getCurrentMode = null;
-let _setCurrentMode = null;
-let _getLogicalW    = null;
-let _getLogicalH    = null;
-let _getBarsGradH   = null;
-let _setBarsGradH   = null;
-let _getVignetteW   = null;
-let _setVignetteW   = null;
-let _getVignetteH   = null;
-let _setVignetteH   = null;
-let _getCanvasWrap  = null;
-let _applyThemeFn   = null;
-let _markModifiedFn = null;
-let _toggleRecordFn = null;
-let _cycleModeFn    = null;
+let _getCurrentMode     = null;
+let _setCurrentMode     = null;
+let _getLogicalW        = null;
+let _getLogicalH        = null;
+let _getBarsGradH       = null;
+let _setBarsGradH       = null;
+let _getVignetteW       = null;
+let _setVignetteW       = null;
+let _getVignetteH       = null;
+let _setVignetteH       = null;
+let _getCanvasWrap      = null;
+let _applyThemeFn       = null;
+let _markModifiedFn     = null;
+let _toggleRecordFn     = null;
+let _cycleModeFn        = null;
+let _getLayerManagerFn  = null;
+let _enableYtModeFn     = null;
+let _disableYtModeFn    = null;
+let _updateYtLabelFn    = null;
 
 function initControls({
   getCurrentMode, setCurrentMode,
@@ -25,16 +29,22 @@ function initControls({
   getCanvasWrap,
   applyTheme, markModified,
   toggleRecording, cycleMode,
+  getLayerManager,
+  enableYtMode, disableYtMode, updateYtModeLabel,
 }) {
-  _getCurrentMode = getCurrentMode;
-  _setCurrentMode = setCurrentMode;
-  _getLogicalW    = getLogicalW;
-  _getLogicalH    = getLogicalH;
-  _getCanvasWrap  = getCanvasWrap;
-  _applyThemeFn   = applyTheme;
-  _markModifiedFn = markModified;
-  _toggleRecordFn = toggleRecording;
-  _cycleModeFn    = cycleMode;
+  _getCurrentMode    = getCurrentMode;
+  _setCurrentMode    = setCurrentMode;
+  _getLogicalW       = getLogicalW;
+  _getLogicalH       = getLogicalH;
+  _getCanvasWrap     = getCanvasWrap;
+  _applyThemeFn      = applyTheme;
+  _markModifiedFn    = markModified;
+  _toggleRecordFn    = toggleRecording;
+  _cycleModeFn       = cycleMode;
+  _getLayerManagerFn = getLayerManager;
+  _enableYtModeFn    = enableYtMode;
+  _disableYtModeFn   = disableYtMode;
+  _updateYtLabelFn   = updateYtModeLabel;
 }
 
 function markModified() {
@@ -138,6 +148,39 @@ function syncControlsToParams(currentMode) {
   document.getElementById('ctrl-terrain-speed').value = params.terrainSpeed;
   document.getElementById('val-terrain-speed').textContent = params.terrainSpeed;
   document.getElementById('row-terrain-speed').style.display = currentMode === 'terrain' ? '' : 'none';
+
+  /* BPM */
+  const bpmEnabledBtn = document.getElementById('ctrl-bpm-enabled');
+  if (bpmEnabledBtn) {
+    bpmEnabledBtn.classList.toggle('active', params.bpmEnabled);
+    BPMClock.setEnabled(params.bpmEnabled);
+    BPMClock.setBPM(params.bpm || 120);
+    BPMClock.setSubdivision(params.bpmSubdivision || 1);
+    const bpmInput = document.getElementById('ctrl-bpm-value');
+    if (bpmInput) bpmInput.value = params.bpm || 120;
+    const bpmDisp = document.getElementById('val-bpm');
+    if (bpmDisp) bpmDisp.textContent = (params.bpm || 120) + ' BPM';
+    const subdivSel = document.getElementById('ctrl-bpm-subdivision');
+    if (subdivSel) subdivSel.value = params.bpmSubdivision || 1;
+  }
+
+  /* FX */
+  const fxMode = document.getElementById('ctrl-fx-mode');
+  if (fxMode) fxMode.value = params.fxMode || 'none';
+  const fxInt = document.getElementById('ctrl-fx-intensity');
+  if (fxInt) {
+    fxInt.value = params.fxIntensity || 0.5;
+    const fxVal = document.getElementById('val-fx-intensity');
+    if (fxVal) fxVal.textContent = (params.fxIntensity || 0.5).toFixed(2);
+  }
+
+  /* Resolution */
+  const resSel = document.getElementById('ctrl-record-resolution');
+  if (resSel) resSel.value = params.recordResolution || '1080p';
+
+  /* Layers enabled */
+  const layEnabledBtn = document.getElementById('ctrl-layers-enabled');
+  if (layEnabledBtn) layEnabledBtn.classList.toggle('active', params.layersEnabled);
 
   /* artist card */
   document.getElementById('ctrl-artist-card-enabled').classList.toggle('active', params.artistCardEnabled);
@@ -747,4 +790,317 @@ function initRightPanel() {
   const navThemes = document.getElementById('nav-themes');
   if (navMode)   navMode.dataset.hasSelection   = '';
   if (navThemes) navThemes.dataset.hasSelection = '';
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   BPM CLOCK CONTROLS
+═══════════════════════════════════════════════════════════════ */
+function initBPMControls(markModifiedFn) {
+  const enableBtn   = document.getElementById('ctrl-bpm-enabled');
+  const tapBtn      = document.getElementById('ctrl-bpm-tap');
+  const bpmInput    = document.getElementById('ctrl-bpm-value');
+  const bpmDisplay  = document.getElementById('val-bpm');
+  const subdivSel   = document.getElementById('ctrl-bpm-subdivision');
+
+  if (!enableBtn) return;
+
+  enableBtn.addEventListener('click', () => {
+    params.bpmEnabled = !params.bpmEnabled;
+    BPMClock.setEnabled(params.bpmEnabled);
+    enableBtn.classList.toggle('active', params.bpmEnabled);
+    markModifiedFn();
+  });
+
+  tapBtn.addEventListener('click', () => {
+    BPMClock.tap();
+    params.bpm = Math.round(BPMClock.getBPM());
+    bpmInput.value  = params.bpm;
+    bpmDisplay.textContent = params.bpm + ' BPM';
+    markModifiedFn();
+  });
+
+  bpmInput.addEventListener('input', () => {
+    const v = Math.max(40, Math.min(250, parseInt(bpmInput.value, 10) || 120));
+    params.bpm = v;
+    BPMClock.setBPM(v);
+    bpmDisplay.textContent = v + ' BPM';
+    markModifiedFn();
+  });
+
+  subdivSel.addEventListener('change', () => {
+    const v = parseInt(subdivSel.value, 10);
+    params.bpmSubdivision = v;
+    BPMClock.setSubdivision(v);
+    markModifiedFn();
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FX CONTROLS
+═══════════════════════════════════════════════════════════════ */
+function initFXControls(markModifiedFn) {
+  const modeSelect   = document.getElementById('ctrl-fx-mode');
+  const intensityEl  = document.getElementById('ctrl-fx-intensity');
+  const intensityVal = document.getElementById('val-fx-intensity');
+
+  if (!modeSelect) return;
+
+  modeSelect.addEventListener('change', () => {
+    params.fxMode = modeSelect.value;
+    markModifiedFn();
+  });
+
+  intensityEl.addEventListener('input', () => {
+    params.fxIntensity = parseFloat(intensityEl.value);
+    intensityVal.textContent = params.fxIntensity.toFixed(2);
+    markModifiedFn();
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PER-ELEMENT BINDING CONTROLS
+═══════════════════════════════════════════════════════════════ */
+function _makeBindingRow(elementKey, label) {
+  const b = params.bindings[elementKey];
+
+  const row = document.createElement('div');
+  row.className  = 'binding-row';
+  row.innerHTML = `
+    <div class="binding-header">
+      <span class="binding-label">${label}</span>
+      <button class="toggle-btn ${b.enabled ? 'active' : ''}"
+              id="ctrl-bind-${elementKey}-enabled" aria-label="Toggle ${label} binding"></button>
+    </div>
+    <div class="binding-body">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="ctrl-select" id="ctrl-bind-${elementKey}-band" style="flex:1">
+          <option value="bass"  ${b.band==='bass'  ? 'selected':''}>Bass</option>
+          <option value="mids"  ${b.band==='mids'  ? 'selected':''}>Mids</option>
+          <option value="highs" ${b.band==='highs' ? 'selected':''}>Highs</option>
+        </select>
+        <input type="color" id="ctrl-bind-${elementKey}-color"
+               value="${b.color || '#ffffff'}" title="Element color"
+               style="width:30px;height:28px;padding:2px;border:none;background:none;cursor:pointer">
+      </div>
+      ${elementKey === 'label' ? `<input type="text" class="text-input" id="ctrl-bind-${elementKey}-label"
+               value="${b.label || 'LIVE'}" maxlength="20" placeholder="Label text…"
+               style="margin-top:6px">` : ''}
+      <div style="display:flex;gap:4px;align-items:center;margin-top:6px;font-size:11px;color:#888">
+        <span>Range&nbsp;</span>
+        <input type="range" id="ctrl-bind-${elementKey}-min"
+               min="0" max="1" step="0.01" value="${b.minVal}" style="flex:1">
+        <span id="val-bind-${elementKey}-min">${b.minVal.toFixed(2)}</span>
+        <span>&nbsp;→&nbsp;</span>
+        <input type="range" id="ctrl-bind-${elementKey}-max"
+               min="0" max="1" step="0.01" value="${b.maxVal}" style="flex:1">
+        <span id="val-bind-${elementKey}-max">${b.maxVal.toFixed(2)}</span>
+      </div>
+    </div>`;
+  return row;
+}
+
+function initBindingControls(markModifiedFn) {
+  const container = document.getElementById('binding-rows');
+  if (!container) return;
+
+  const ELEMENTS = [
+    { key: 'circle', label: 'Circle' },
+    { key: 'bar',    label: 'Bar Strip' },
+    { key: 'ring',   label: 'Ring' },
+    { key: 'label',  label: 'Label' },
+  ];
+
+  ELEMENTS.forEach(({ key, label }) => {
+    const row = _makeBindingRow(key, label);
+    container.appendChild(row);
+
+    const b = params.bindings[key];
+
+    document.getElementById(`ctrl-bind-${key}-enabled`).addEventListener('click', e => {
+      b.enabled = !b.enabled;
+      e.currentTarget.classList.toggle('active', b.enabled);
+      markModifiedFn();
+    });
+
+    document.getElementById(`ctrl-bind-${key}-band`).addEventListener('change', e => {
+      b.band = e.target.value;
+      markModifiedFn();
+    });
+
+    document.getElementById(`ctrl-bind-${key}-color`).addEventListener('input', e => {
+      b.color = e.target.value;
+      markModifiedFn();
+    });
+
+    if (key === 'label') {
+      document.getElementById(`ctrl-bind-${key}-label`).addEventListener('input', e => {
+        b.label = e.target.value;
+        markModifiedFn();
+      });
+    }
+
+    document.getElementById(`ctrl-bind-${key}-min`).addEventListener('input', e => {
+      b.minVal = parseFloat(e.target.value);
+      document.getElementById(`val-bind-${key}-min`).textContent = b.minVal.toFixed(2);
+      markModifiedFn();
+    });
+
+    document.getElementById(`ctrl-bind-${key}-max`).addEventListener('input', e => {
+      b.maxVal = parseFloat(e.target.value);
+      document.getElementById(`val-bind-${key}-max`).textContent = b.maxVal.toFixed(2);
+      markModifiedFn();
+    });
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYER COMPOSITOR CONTROLS
+═══════════════════════════════════════════════════════════════ */
+const LAYER_MODES = ['bars','waveform','spectrogram','radial','particles','rings','scope','terrain'];
+const BLEND_MODES = [
+  'source-over','screen','multiply','overlay','soft-light',
+  'hard-light','color-dodge','color-burn','difference','exclusion','lighter',
+];
+
+function _renderLayerList(container, markModifiedFn) {
+  if (!_getLayerManagerFn) return;
+  const lm = _getLayerManagerFn();
+  container.innerHTML = '';
+
+  if (lm.layers.length === 0) {
+    container.innerHTML = '<p style="color:#666;font-size:12px;margin:8px 0">No layers. Add one below.</p>';
+    return;
+  }
+
+  lm.layers.forEach((layer, idx) => {
+    const div = document.createElement('div');
+    div.className = 'layer-row';
+    div.innerHTML = `
+      <div class="layer-row-header">
+        <span class="layer-idx">${idx + 1}</span>
+        <select class="ctrl-select layer-mode-sel" style="flex:1">
+          ${LAYER_MODES.map(m => `<option value="${m}" ${m===layer.mode?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`).join('')}
+        </select>
+        <button class="toggle-btn ${layer.visible?'active':''} layer-vis-btn" title="Toggle visibility"></button>
+        <button class="btn layer-del-btn" title="Remove layer" style="padding:3px 7px;font-size:11px">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <div style="flex:1;min-width:80px">
+          <div style="font-size:11px;color:#888;margin-bottom:3px">Opacity <span class="layer-op-val">${layer.opacity.toFixed(2)}</span></div>
+          <input type="range" class="layer-op-range" min="0.05" max="1" step="0.05" value="${layer.opacity}" style="width:100%">
+        </div>
+        <div style="flex:1;min-width:80px">
+          <div style="font-size:11px;color:#888;margin-bottom:3px">Blend</div>
+          <select class="ctrl-select layer-blend-sel">
+            ${BLEND_MODES.map(m => `<option value="${m}" ${m===layer.blendMode?'selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <button class="btn layer-up-btn" style="padding:2px 7px;font-size:11px" ${idx===0?'disabled':''}>▲</button>
+          <button class="btn layer-dn-btn" style="padding:2px 7px;font-size:11px" ${idx===lm.layers.length-1?'disabled':''}>▼</button>
+        </div>
+      </div>`;
+
+    div.querySelector('.layer-mode-sel').addEventListener('change', e => {
+      layer.mode = e.target.value;
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-vis-btn').addEventListener('click', e => {
+      layer.visible = !layer.visible;
+      e.currentTarget.classList.toggle('active', layer.visible);
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-del-btn').addEventListener('click', () => {
+      lm.removeLayer(layer.id);
+      if (lm.layers.length === 0) params.layersEnabled = false;
+      _renderLayerList(container, markModifiedFn);
+      _syncLayerEnabledBtn();
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-op-range').addEventListener('input', e => {
+      layer.opacity = parseFloat(e.target.value);
+      div.querySelector('.layer-op-val').textContent = layer.opacity.toFixed(2);
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-blend-sel').addEventListener('change', e => {
+      layer.blendMode = e.target.value;
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-up-btn').addEventListener('click', () => {
+      lm.moveUp(layer.id);
+      _renderLayerList(container, markModifiedFn);
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-dn-btn').addEventListener('click', () => {
+      lm.moveDown(layer.id);
+      _renderLayerList(container, markModifiedFn);
+      markModifiedFn();
+    });
+
+    container.appendChild(div);
+  });
+}
+
+let _syncLayerEnabledBtn = () => {};
+
+function initLayerControls(markModifiedFn) {
+  const enableBtn  = document.getElementById('ctrl-layers-enabled');
+  const addBtn     = document.getElementById('ctrl-layer-add');
+  const container  = document.getElementById('layer-list');
+  const addModeEl  = document.getElementById('ctrl-layer-add-mode');
+
+  if (!enableBtn || !_getLayerManagerFn) return;
+
+  _syncLayerEnabledBtn = () => {
+    enableBtn.classList.toggle('active', params.layersEnabled);
+  };
+
+  enableBtn.addEventListener('click', () => {
+    params.layersEnabled = !params.layersEnabled;
+    _syncLayerEnabledBtn();
+    markModifiedFn();
+  });
+
+  addBtn.addEventListener('click', () => {
+    const lm = _getLayerManagerFn();
+    if (lm.layers.length >= 4) {
+      showToast('Maximum 4 layers reached', 'warn');
+      return;
+    }
+    const mode = addModeEl ? addModeEl.value : 'bars';
+    lm.addLayer({ mode, opacity: 1.0, blendMode: 'source-over' });
+    params.layersEnabled = true;
+    _syncLayerEnabledBtn();
+    _renderLayerList(container, markModifiedFn);
+    markModifiedFn();
+  });
+
+  _renderLayerList(container, markModifiedFn);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RECORDING RESOLUTION CONTROLS
+═══════════════════════════════════════════════════════════════ */
+function initRecordingControls(markModifiedFn) {
+  const sel = document.getElementById('ctrl-record-resolution');
+  if (!sel) return;
+
+  sel.value = params.recordResolution || '1080p';
+
+  sel.addEventListener('change', () => {
+    params.recordResolution = sel.value;
+    if (_updateYtLabelFn) _updateYtLabelFn();
+    markModifiedFn();
+  });
 }

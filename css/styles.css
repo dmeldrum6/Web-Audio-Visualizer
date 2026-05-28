@@ -1409,3 +1409,47 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
     width: 240px;
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   LAYER COMPOSITOR
+══════════════════════════════════════════════════════════════ */
+.layer-row {
+  background: #1c1c23;
+  border: 1px solid #2e2e3a;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.layer-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.layer-idx {
+  font-size: 11px;
+  color: #666;
+  min-width: 14px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   AUDIO BINDINGS
+══════════════════════════════════════════════════════════════ */
+.binding-row {
+  background: #1c1c23;
+  border: 1px solid #2e2e3a;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.binding-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.binding-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+}

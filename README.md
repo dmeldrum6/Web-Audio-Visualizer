@@ -10,6 +10,11 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 ## Features
 
 - **Eight visualizer modes** — spectrum bars, oscilloscope waveform, scrolling spectrogram, radial bars, particle system, frequency rings, Lissajous scope, and 3D terrain
+- **Layer compositor** — stack 2–4 visualizer modes with independent opacity and blend mode controls for richly layered results
+- **BPM Lock / Tempo Sync** — tap-tempo or manual BPM entry, with subdivision control (whole / half / quarter / eighth note) so beat events fire locked to the tempo rather than chasing peaks
+- **Aesthetic FX** — five post-processing passes (VHS, CRT, Film Grain, Glitch, Chromatic Aberration) with intensity control, applied after all rendering and bloom
+- **Per-element audio bindings** — four independent canvas elements (circle, bar strip, ring, label) each individually bound to bass / mids / highs with configurable amplitude range
+- **4K / custom resolution export** — choose 1080p, 1440p, or 4K (2160p) from the top bar before recording; canvas and bitrate scale automatically
 - **Two audio inputs** — microphone or local audio file
 - **Full file playback controls** — play, pause, stop, seek, loop, and variable playback speed
 - **Beat detection** — real-time onset detection drives flash effects, particle bursts, and ring ripples
@@ -17,7 +22,7 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 - **Motion trail** — persistent canvas decay for ghost-echo and smear effects
 - **Text overlay system** — seven animation styles composited directly onto the canvas, including a broadcast-style lower third
 - **Audio-reactive background gradient** — procedural background that shifts hue and saturation with the music
-- **YouTube Mode** — 16:9 canvas lock, 12 Mbps VP9 recording, and a canvas-rendered progress bar
+- **YouTube Mode** — 16:9 canvas lock at the chosen export resolution, high-bitrate VP9 recording
 - **Theme engine** — six built-in color themes, applied instantly
 - **Preset system** — eight built-in presets plus save/load via localStorage
 - **URL sharing** — encode any preset as a shareable link via URL hash
@@ -160,6 +165,75 @@ When a bass beat fires, a brief white flash (≈150 ms, low opacity) is composit
 
 ---
 
+## BPM Lock / Tempo Sync
+
+The **Beat** panel includes a BPM Clock section beneath the standard onset detector.
+
+| Control | Description |
+|---|---|
+| Enable BPM Clock | When on, replaces reactive beat detection with a precise metronome |
+| Tap Tempo | Click in rhythm to derive BPM from inter-tap intervals (averages last 8 taps) |
+| BPM field | Type a value directly (40 – 250) |
+| Subdivision | Whole / Half / Quarter / Eighth — controls how many pulses fire per bar |
+
+When the BPM Clock is enabled it drives the same beat-flash, radial pulse, ring ripple, and particle burst effects as onset detection, but locked to the chosen tempo. This is particularly effective with AI-generated music that has a steady, quantised rhythm.
+
+---
+
+## Layer Compositor
+
+Open the **Layers** panel (🗂) from the navigation strip to stack multiple visualizer modes.
+
+- **Add Layer** — pick a mode from the dropdown and add it to the stack (up to 4 layers)
+- Each layer has its own **mode**, **opacity** (0.05 – 1.0), and **blend mode** (source-over, screen, multiply, overlay, and more)
+- Layers can be **reordered** (▲ / ▼) and individually **toggled** or **deleted**
+- Enable the **Use Layers** toggle to activate compositor mode; when off, the single mode selected in the Mode panel is used instead
+
+Classic combinations:
+- Terrain (back, multiply) + Radial (mid, source-over 0.8) + Particles (top, screen 0.6)
+- Waveform (back, overlay) + Scope (top, lighter 0.5)
+- Bars + Rings (screen blend) for a layered frequency read
+
+---
+
+## Aesthetic FX
+
+Open the **FX** panel (🎞) to apply a post-processing pass after all rendering (including bloom).
+
+| Mode | Effect |
+|---|---|
+| **VHS** | Horizontal scanlines, tape noise strips, cyan color bleed, edge vignette |
+| **CRT** | Phosphor dot-matrix overlay, scanlines, green phosphor tint, curved-screen corner darkening |
+| **Film Grain** | Per-frame seeded noise overlay refreshed every other frame for subtle animation |
+| **Glitch** | Periodic row-slice displacement bursts with RGB channel flash artifacts |
+| **Chromatic Aberration** | Red and blue channel copies drawn at slight offsets to create colour fringing |
+
+The **Intensity** slider (0.1 – 1.0) scales every effect. FX are included in recordings.
+
+---
+
+## Per-Element Audio Bindings
+
+Open the **Bind** panel (🔗) to configure up to four independent canvas elements, each driven by a specific frequency band.
+
+| Element | What it draws |
+|---|---|
+| **Circle** | Outlined circle at canvas centre, radius driven by selected band |
+| **Bar Strip** | Horizontal capsule bar at the bottom third, width driven by selected band |
+| **Ring** | Dashed ring at canvas centre, radius driven by selected band |
+| **Label** | Text label centred near the top, opacity and scale driven by selected band |
+
+Per element you can set:
+- **Enable** toggle — show or hide the element
+- **Band** — Bass, Mids, or Highs
+- **Color** — custom color picker (defaults to theme accent)
+- **Range** — min and max value sliders control the amplitude mapping
+- **Label text** — (Label element only) the string to display
+
+Bindings draw on top of the visualizer and bloom but beneath progress bar, timer, and artist card, so they are included in recordings.
+
+---
+
 ## Background
 
 | Option | Description |
@@ -250,25 +324,43 @@ Text overlay settings are saved as part of presets and encoded in shared URLs.
 Click **Record** in the top bar to begin. The canvas and audio are mixed together into a single WebM file.
 
 - Format: WebM (VP9 + Opus), falling back to VP8 if VP9 is unavailable
-- Standard resolution: up to 1080p at 30 fps, ~5 Mbps
-- YouTube Mode resolution: 1920 × 1080 at 12 Mbps VP9 — see below
-- Max duration: 5 minutes (auto-stops at 5:00 with a warning at 4:50)
+- Resolution: selected from the dropdown next to the YT button (1080p / 1440p / 4K / Native)
+- Bitrate scales with resolution: 12 Mbps at 1080p, 20 Mbps at 1440p, 45 Mbps at 4K
+- Canvas enters the selected resolution mode automatically at record-start and restores on stop
+- Max duration: 60 minutes (auto-stops with a warning at 59:50)
 - Output: auto-downloaded as `visualizer-{timestamp}.webm`
 
-> **Safari:** MediaRecorder support is limited. Recording is available in Chrome and Edge. Safari users will see a notification with instructions for screen capture instead.
+> **Safari:** MediaRecorder support is limited. Recording is available in Chrome and Edge.
+
+---
+
+## Export Resolution
+
+Select a resolution from the dropdown in the top bar before hitting **Record** or **YT Mode**:
+
+| Option | Canvas size | Bitrate |
+|---|---|---|
+| 1080p | 1920 × 1080 | 12 Mbps VP9 |
+| 1440p | 2560 × 1440 | 20 Mbps VP9 |
+| 4K (2160p) | 3840 × 2160 | 45 Mbps VP9 |
+| Native | Window size | ~5 Mbps VP9 |
+
+The YT Mode button shows the currently selected resolution. When you start recording in a non-native resolution the canvas resizes automatically; when recording stops it returns to window-fit mode.
+
+> YouTube rewards 4K uploads with a better codec tier even for non-4K source content, so uploading at 2160p can improve perceived quality.
 
 ---
 
 ## YouTube Mode
 
-Click **YT 1080p** in the top bar to enable YouTube Mode before recording.
+Click the **YT** resolution button in the top bar to lock the canvas to a fixed 16:9 frame before recording.
 
 | Behaviour | Detail |
 |---|---|
-| Canvas aspect ratio | Locked to 16:9. If your monitor is not 16:9 the canvas scales down with black bars filling the remainder |
-| Internal resolution | Always 1920 × 1080, regardless of window size |
-| Recording bitrate | 12 Mbps VP9 (VP8 fallback) — high enough that YouTube's re-encode retains quality |
-| Composition guide | A faint dashed border shows the exact 16:9 capture area while YouTube Mode is active. The guide is hidden during recording |
+| Canvas aspect ratio | Locked to 16:9. Canvas scales to fill the window with black bars if needed |
+| Internal resolution | Set by the resolution selector (1080p default) |
+| Recording bitrate | Scales with resolution; VP9 preferred over VP8 |
+| Composition guide | A faint dashed border shows the capture area while YT Mode is active. The guide hides during recording |
 
 YouTube Mode is designed to be paired with the **Lower Third** overlay and the **Progress Bar** for a complete music-video presentation.
 
@@ -335,14 +427,17 @@ BufferSource (file)─┘       │            │
 ## Suggested Workflow for YouTube Music Videos
 
 1. Load an audio file and use the **playback controls** to find your start point
-2. Enable **YouTube Mode** (YT 1080p) in the top bar to lock the 16:9 frame
-3. Pick a visualizer mode — **Radial** or **Particles** work well for most music
+2. Select **4K (2160p)** from the resolution dropdown for maximum upload quality, then click the YT button to lock the 16:9 frame
+3. Open **Layers** (🗂) and stack 2–3 modes — e.g. Terrain at back + Radial at 0.8 opacity + Particles at screen-blend on top
 4. Set a **theme** and optionally enable the **Gradient** background for a fully reactive look
-5. Add a **Lower Third** overlay with the song title and artist name; adjust Duration or leave it always visible
-6. Enable the **Progress Bar** overlay so viewers can see where they are in the track
-7. Dial in **Bloom** and **Trail** to taste — a little of both goes a long way
-8. Hit **Record**, let the track play from the beginning, then stop
-9. The WebM downloads automatically — ready to upload directly to YouTube or trim in your editor
+5. If the track has a steady tempo, enable **BPM Clock** in the Beat panel and tap the tempo — this locks visual pulses to the beat grid rather than peak-chasing
+6. Apply a subtle **FX** pass — **Film Grain** or **VHS** at 0.3 intensity adds filmic texture without overwhelming the visuals
+7. Use **Audio Bindings** to bind a circle or bar strip to bass so those elements pulse independently from the main visualizer
+8. Add a **Lower Third** overlay with the song title and artist name; adjust Duration or leave it always visible
+9. Enable the **Progress Bar** overlay so viewers can see where they are in the track
+10. Dial in **Bloom** and **Trail** to taste — a little of both goes a long way
+11. Hit **Record**, let the track play from the beginning, then stop
+12. The WebM downloads automatically — ready to upload directly to YouTube or trim in your editor
 
 ---
 

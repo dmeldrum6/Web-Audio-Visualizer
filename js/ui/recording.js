@@ -74,6 +74,19 @@ function stopRecording() {
   updateRecordUI();
   recorder.stop();
   recorder = null;
+  /* Exit resolution mode if we auto-entered it */
+  if (!_wasInYtMode && _disableYtModeFn) {
+    _disableYtModeFn();
+  }
+}
+
+let _enableYtModeFn  = null;
+let _disableYtModeFn = null;
+let _wasInYtMode     = false;
+
+function initRecordingResolution(enableYtMode, disableYtMode) {
+  _enableYtModeFn  = enableYtMode;
+  _disableYtModeFn = disableYtMode;
 }
 
 async function startRecording(canvas) {
@@ -83,6 +96,15 @@ async function startRecording(canvas) {
   }
 
   const ytModeActive = _ytModeActiveGetter ? _ytModeActiveGetter() : false;
+
+  /* Auto-enter the requested resolution mode if not already in YT mode */
+  if (!ytModeActive && _enableYtModeFn && params.recordResolution && params.recordResolution !== 'native') {
+    _wasInYtMode = false;
+    _enableYtModeFn(params.recordResolution);
+  } else {
+    _wasInYtMode = ytModeActive;
+  }
+
   const videoStream = canvas.captureStream(30);
   const audioStream = AudioEngine.getAudioStream();
 
@@ -91,12 +113,18 @@ async function startRecording(canvas) {
 
   const combined = new MediaStream(tracks);
 
+  /* Bitrate scales with resolution */
+  const resBitrates = { '1080p': 12_000_000, '1440p': 20_000_000, '2160p': 45_000_000 };
+  const targetBps   = resBitrates[params.recordResolution] || 12_000_000;
+
+  const inHighRes = !_wasInYtMode || ytModeActive; /* true once we entered a resolution mode */
+
   let recOptions = {};
-  if (ytModeActive) {
+  if (inHighRes && params.recordResolution !== 'native') {
     if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-      recOptions = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12_000_000 };
+      recOptions = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: targetBps };
     } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-      recOptions = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 12_000_000 };
+      recOptions = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: targetBps };
     }
   } else {
     try {
