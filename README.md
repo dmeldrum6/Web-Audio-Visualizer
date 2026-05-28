@@ -320,23 +320,6 @@ On screens narrower than 768px the sidebar collapses into a bottom drawer. Tap t
 
 ---
 
-## Architecture
-
-The app is a single self-contained HTML file. No framework, no build step, no network requests.
-
-```
-visualizer.html
-├── AudioEngine          Web Audio API graph (source → gain → analyser → compressor → destination)
-├── BeatDetector         Per-frame energy spike detection for bass and treble bands
-├── Render loop          requestAnimationFrame at 60fps; typed arrays reused each frame
-├── Visualizers          Canvas 2D: Bars, Waveform, Spectrogram, Radial, Particles, Rings, Scope, Terrain
-├── PostProcessing       Bloom (off-screen canvas + additive blend), motion trail (persistent clear)
-├── TextOverlay          Seven animation styles drawn onto the canvas post-visualizer
-├── ThemeEngine          Six themes; applies to all canvas draw calls
-├── PresetSystem         JSON schema; localStorage; URL hash encode/decode
-└── Recorder             canvas.captureStream + MediaStreamDestination → MediaRecorder → WebM
-```
-
 ### Audio graph
 
 ```
