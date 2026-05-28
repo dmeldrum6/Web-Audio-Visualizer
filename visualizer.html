@@ -23,7 +23,15 @@
         <span>REC</span>
         <span id="rec-time">00:00</span>
       </div>
-      <button class="btn" id="btn-yt-mode" title="Toggle YouTube 1080p mode">
+      <select id="ctrl-record-resolution" title="Export resolution"
+              style="background:#1e1e24;border:1px solid #333;color:#ccc;
+                     border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer">
+        <option value="1080p">1080p</option>
+        <option value="1440p">1440p</option>
+        <option value="2160p">4K (2160p)</option>
+        <option value="native">Native</option>
+      </select>
+      <button class="btn" id="btn-yt-mode" title="Toggle YouTube export resolution mode">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
           <path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.1c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v1.9c0 2.1.3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.5 21.5 12 21.5 12 21.5s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-1.9C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l8.1 3.6-8.1 3.6z"/>
         </svg>
@@ -126,6 +134,18 @@
     <button class="nav-btn" id="nav-text"     data-panel="panel-text"     title="Text Overlay">
       <span class="nav-icon" style="font-size:14px;font-weight:600;font-style:normal;color:inherit;">Aa</span>
       <span class="nav-label">Text</span>
+    </button>
+    <button class="nav-btn" id="nav-layers"  data-panel="panel-layers"   title="Layer Compositor">
+      <span class="nav-icon">🗂</span>
+      <span class="nav-label">Layers</span>
+    </button>
+    <button class="nav-btn" id="nav-fx"      data-panel="panel-fx"       title="Aesthetic FX">
+      <span class="nav-icon">🎞</span>
+      <span class="nav-label">FX</span>
+    </button>
+    <button class="nav-btn" id="nav-bind"    data-panel="panel-bind"     title="Audio Bindings">
+      <span class="nav-icon">🔗</span>
+      <span class="nav-label">Bind</span>
     </button>
   </nav>
 
@@ -386,6 +406,38 @@
           <span class="ctrl-value" id="val-beat-sensitivity">1.40</span>
         </div>
         <input type="range" id="ctrl-beat-sensitivity" min="1.1" max="2.0" step="0.05" value="1.4">
+      </div>
+
+      <div class="section-label" style="margin-top:12px">BPM Lock / Tempo Sync</div>
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Enable BPM Clock</span>
+        <button class="toggle-btn" id="ctrl-bpm-enabled" aria-label="Toggle BPM clock"></button>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Tempo</span>
+          <span class="ctrl-value" id="val-bpm">120 BPM</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="ctrl-bpm-value" min="40" max="250" value="120"
+                 style="width:60px;padding:4px 6px;background:#1e1e24;border:1px solid #333;
+                        color:#eee;border-radius:4px;font-size:13px">
+          <button class="btn" id="ctrl-bpm-tap" style="flex:1;font-weight:600">
+            Tap Tempo
+          </button>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">Subdivision</span>
+        <select class="ctrl-select" id="ctrl-bpm-subdivision">
+          <option value="1">Whole note (1 per bar)</option>
+          <option value="2">Half note</option>
+          <option value="4">Quarter note (beat)</option>
+          <option value="8">Eighth note</option>
+        </select>
       </div>
 
     </div>
@@ -697,6 +749,94 @@
     </div>
   </div>
 
+  <!-- ── LAYER COMPOSITOR ─────────────────────────────────── -->
+  <div id="panel-layers" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Layer Compositor</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <div class="toggle-row">
+        <span class="ctrl-label">Use Layers</span>
+        <button class="toggle-btn" id="ctrl-layers-enabled" aria-label="Toggle layer compositor"></button>
+      </div>
+
+      <p style="font-size:12px;color:#888;margin:4px 0 10px">
+        Each layer renders an independent visualizer mode. Up to 4 layers. When disabled, the single Mode selection is used.
+      </p>
+
+      <div id="layer-list"></div>
+
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <select class="ctrl-select" id="ctrl-layer-add-mode" style="flex:1">
+          <option value="bars">Bars</option>
+          <option value="waveform">Waveform</option>
+          <option value="spectrogram">Spectrogram</option>
+          <option value="radial">Radial</option>
+          <option value="particles">Particles</option>
+          <option value="rings">Rings</option>
+          <option value="scope">Scope</option>
+          <option value="terrain">Terrain</option>
+        </select>
+        <button class="btn" id="ctrl-layer-add" style="white-space:nowrap">+ Add Layer</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── AESTHETIC FX ──────────────────────────────────────── -->
+  <div id="panel-fx" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Aesthetic FX</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <div class="ctrl-row">
+        <span class="ctrl-label" style="margin-bottom:6px;display:block">FX Mode</span>
+        <select class="ctrl-select" id="ctrl-fx-mode">
+          <option value="none">None</option>
+          <option value="vhs">VHS — Scanlines + tape noise</option>
+          <option value="crt">CRT — Phosphor dot matrix</option>
+          <option value="grain">Film Grain — Seeded noise overlay</option>
+          <option value="glitch">Glitch — Row slice displacement</option>
+          <option value="chroma">Chromatic Aberration — RGB fringe</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <div class="ctrl-row-header">
+          <span class="ctrl-label">Intensity</span>
+          <span class="ctrl-value" id="val-fx-intensity">0.50</span>
+        </div>
+        <input type="range" id="ctrl-fx-intensity" min="0.1" max="1.0" step="0.05" value="0.5">
+      </div>
+
+      <p style="font-size:12px;color:#888;margin-top:8px">
+        FX are applied after all rendering. Glitch and Chromatic Aberration use an offscreen canvas for correct compositing.
+      </p>
+
+    </div>
+  </div>
+
+  <!-- ── AUDIO BINDINGS ─────────────────────────────────────── -->
+  <div id="panel-bind" class="panel-section">
+    <div class="panel-header">
+      <span class="panel-header-title">Audio Bindings</span>
+      <button class="panel-close-btn" aria-label="Close panel">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <p style="font-size:12px;color:#888;margin:0 0 10px">
+        Bind independent canvas elements to frequency bands. Each element reacts to bass, mids, or highs.
+      </p>
+
+      <div id="binding-rows"></div>
+
+    </div>
+  </div>
+
 </div><!-- /right-panel-host -->
 
 <!-- Keyboard shortcuts modal -->
@@ -761,6 +901,7 @@
 <script src="js/themes.js"></script>
 <script src="js/audio/engine.js"></script>
 <script src="js/audio/beat-detector.js"></script>
+<script src="js/audio/bpm-clock.js"></script>
 <script src="js/renderers/bars.js"></script>
 <script src="js/renderers/waveform.js"></script>
 <script src="js/renderers/spectrogram.js"></script>
@@ -775,6 +916,8 @@
 <script src="js/overlays/artist-card.js"></script>
 <script src="js/overlays/progress-bar.js"></script>
 <script src="js/overlays/bloom.js"></script>
+<script src="js/overlays/fx.js"></script>
+<script src="js/overlays/bindings.js"></script>
 <script src="js/layers/layer.js"></script>
 <script src="js/layers/layer-manager.js"></script>
 <script src="js/ui/toast.js"></script>

@@ -14,6 +14,9 @@ let ytModeActive = false;
 let bloomCanvas = document.createElement('canvas');
 let bloomCtx    = bloomCanvas.getContext('2d');
 
+/* Layer compositor */
+const layerManager = new LayerManager();
+
 /* Vignette gradient cache — invalidated on resize */
 let vignetteGrad = null;
 let vignetteW = -1, vignetteH = -1;
@@ -54,6 +57,7 @@ function getCurrentMode()      { return currentMode; }
 function setCurrentMode(mode)  { currentMode = mode; }
 function getLogicalW()         { return logicalW; }
 function getLogicalH()         { return logicalH; }
+function getLayerManager()     { return layerManager; }
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -132,7 +136,11 @@ function render(freq, time) {
 
   /* 4. Visualizer — fill opacity reduced 20% when any background is active */
   const vizFillAlpha = (params.bgGradient || bgState.image) ? 0.8 : 1.0;
-  renderMode(g, currentMode, freq, time, W, H, vizFillAlpha, bgState, radialImageState);
+  if (params.layersEnabled && layerManager.layers.length > 0) {
+    layerManager.render(g, freq, time, W, H, vizFillAlpha, bgState, radialImageState);
+  } else {
+    renderMode(g, currentMode, freq, time, W, H, vizFillAlpha, bgState, radialImageState);
+  }
 
   /* 5. Vignette */
   drawVignette(W, H);
@@ -165,6 +173,14 @@ function render(freq, time) {
   /* 9. Bloom/glow post-processing */
   if (params.bloomIntensity > 0) {
     applyBloom(g, canvas, bloomCanvas, bloomCtx, W, H);
+  }
+
+  /* 9b. Per-element audio bindings */
+  if (freq) drawBindings(g, W, H, freq);
+
+  /* 9c. Aesthetic FX post-processing */
+  if (params.fxMode && params.fxMode !== 'none') {
+    applyFX(g, W, H, params.fxMode, params.fxIntensity);
   }
 
   /* 10. Progress bar — drawn last so it composites over everything */
@@ -268,7 +284,10 @@ function loop(now) {
   const time = AudioEngine.getTimeDomainData();
 
   BeatDetector.update(freq);
-  if (BeatDetector.isBeat()) {
+  BPMClock.update();
+
+  const beatFired = BeatDetector.isBeat() || (BPMClock.isEnabled() && BPMClock.isTick());
+  if (beatFired) {
     beatFlashStart = performance.now();
     setRadialBeatTime(performance.now());
     setArtistCardBeatState(1.15, 0.20, 0.40);
@@ -313,21 +332,29 @@ function applyYtModeLayout() {
 
 const ytResizeObserver = new ResizeObserver(applyYtModeLayout);
 
-function enableYtMode() {
+const RESOLUTIONS = {
+  '1080p': { w: 1920, h: 1080 },
+  '1440p': { w: 2560, h: 1440 },
+  '2160p': { w: 3840, h: 2160 },
+};
+
+function enableYtMode(resolution) {
+  const res = RESOLUTIONS[resolution || params.recordResolution] || RESOLUTIONS['1080p'];
+
   ytModeActive = true;
   btnYtMode.classList.add('active');
 
   ytInner.appendChild(canvas);
   canvasWrap.classList.add('yt-mode');
 
-  canvas.width  = 1920;
-  canvas.height = 1080;
+  canvas.width  = res.w;
+  canvas.height = res.h;
   g.setTransform(1, 0, 0, 1, 0, 0);
-  bloomCanvas.width  = 1920;
-  bloomCanvas.height = 1080;
+  bloomCanvas.width  = res.w;
+  bloomCanvas.height = res.h;
   bloomCtx.setTransform(1, 0, 0, 1, 0, 0);
-  logicalW = 1920;
-  logicalH = 1080;
+  logicalW = res.w;
+  logicalH = res.h;
   vignetteW = -1;
   vignetteH = -1;
   bgState.patternW = -1;
@@ -350,6 +377,16 @@ function disableYtMode() {
   canvasWrap.classList.remove('yt-mode');
 
   resizeCanvas();
+}
+
+function updateYtModeLabel() {
+  btnYtMode.textContent = '';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '11'); svg.setAttribute('height', '11');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'currentColor');
+  svg.innerHTML = '<path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.1c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v1.9c0 2.1.3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.5 21.5 12 21.5 12 21.5s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-1.9C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l8.1 3.6-8.1 3.6z"/>';
+  btnYtMode.appendChild(svg);
+  btnYtMode.appendChild(document.createTextNode(' YT ' + (params.recordResolution || '1080p')));
 }
 
 btnYtMode.addEventListener('click', () => {
@@ -831,6 +868,10 @@ initControls({
   markModified: doMarkModified,
   toggleRecording: () => toggleRecording(canvas),
   cycleMode,
+  getLayerManager,
+  enableYtMode,
+  disableYtMode,
+  updateYtModeLabel,
 });
 
 /* Wire presets callbacks */
@@ -843,6 +884,7 @@ initPresets({
 
 /* Wire recording module */
 initRecording(() => ytModeActive, ytGuide);
+initRecordingResolution(enableYtMode, disableYtMode);
 initRecordButton(canvas);
 
 /* Build theme swatches */
@@ -856,6 +898,11 @@ initModeButtons(switchModeAnimated, doMarkModified);
 initAnalyzerControls(doMarkModified);
 initVisualControls(doMarkModified);
 initBeatControls(doMarkModified, () => beatFlashStart, (v) => { beatFlashStart = v; });
+initBPMControls(doMarkModified);
+initFXControls(doMarkModified);
+initBindingControls(doMarkModified);
+initLayerControls(doMarkModified);
+initRecordingControls(doMarkModified);
 initTextOverlayControls(doMarkModified);
 initBackgroundControls(doMarkModified);
 initArtistCardControls(doMarkModified, loadArtistImageFromFile, clearArtistImage);
