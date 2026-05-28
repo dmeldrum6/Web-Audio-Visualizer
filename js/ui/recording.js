@@ -1,11 +1,7 @@
-import { params } from '../params.js';
-import { AudioEngine } from '../audio/engine.js';
-import { startArtistCardTimer } from '../overlays/artist-card.js';
-import { showToast } from './toast.js';
 
 let recorder        = null;
 let recordChunks    = [];
-export let isRecording = false;
+let isRecording = false;
 let recordStartTime = 0;
 let recTimerInterval = null;
 let recMaxTimer     = null;
@@ -32,7 +28,7 @@ function updateRecordTimer() {
 let _ytModeActiveGetter = null;
 let _ytGuide = null;
 
-export function initRecording(getYtModeActive, ytGuide) {
+function initRecording(getYtModeActive, ytGuide) {
   _ytModeActiveGetter = getYtModeActive;
   _ytGuide = ytGuide;
 }
@@ -66,7 +62,7 @@ function saveRecording() {
   recordChunks = [];
 }
 
-export function stopRecording() {
+function stopRecording() {
   if (!isRecording || !recorder) return;
   clearInterval(recTimerInterval);
   clearTimeout(recMaxTimer);
@@ -80,7 +76,7 @@ export function stopRecording() {
   recorder = null;
 }
 
-export async function startRecording(canvas) {
+async function startRecording(canvas) {
   if (!canvas.captureStream || !window.MediaRecorder) {
     showToast('Recording not supported in this browser — try Chrome or Edge', 'error');
     return;
@@ -145,11 +141,11 @@ export async function startRecording(canvas) {
   }, 3600000);
 }
 
-export function toggleRecording(canvas) {
+function toggleRecording(canvas) {
   if (isRecording) stopRecording();
   else startRecording(canvas);
 }
 
-export function initRecordButton(canvas) {
+function initRecordButton(canvas) {
   btnRecord.addEventListener('click', () => toggleRecording(canvas));
 }

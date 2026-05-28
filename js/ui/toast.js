@@ -1,6 +1,6 @@
 const toastContainer = document.getElementById('toast-container');
 
-export function showToast(message, type = 'info', duration = 4000) {
+function showToast(message, type = 'info', duration = 4000) {
   const el = document.createElement('div');
   el.className = 'toast' + (type !== 'info' ? ' ' + type : '');
   el.textContent = message;

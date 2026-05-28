@@ -1,16 +1,5 @@
-import { params } from '../params.js';
-import { THEMES, THEME, buildHeat, gradHueBase, setGradHueBase, hexToHsl, hexToRgb } from '../themes.js';
-import { AudioEngine } from '../audio/engine.js';
-import { barHeights } from '../renderers/bars.js';
-import {
-  bgState, radialImageState,
-  loadBackgroundFromDataUrl, loadRadialImageFromDataUrl,
-  clearBackground, clearRadialImage, imageToDataUrl,
-} from '../overlays/background.js';
-import { resetOverlayTimer, triggerLowerThird } from '../overlays/text.js';
-import { showToast } from '../ui/toast.js';
 
-export const BUILT_IN_PRESETS = [
+const BUILT_IN_PRESETS = [
   { version:1, name:'Classic Bars',  mode:'bars',        fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:0, themeName:'Midnight'  },
   { version:1, name:'Deep Waveform', mode:'waveform',    fftSize:4096,  smoothing:0.85, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:3, themeName:'Neon'       },
   { version:1, name:'Heat Map',      mode:'spectrogram', fftSize:16384, smoothing:0.80, gain:1.0, motionAmount:0.5, mirror:false, fill:true,  barCount:128, theme:1, themeName:'Ember'      },
@@ -23,7 +12,7 @@ export const BUILT_IN_PRESETS = [
   { version:1, name:'Radial Mirror', mode:'radial',      fftSize:8192,  smoothing:0.80, gain:1.0, motionAmount:0.6, mirror:true,  fill:true,  barCount:128, theme:3, themeName:'Neon'      },
 ];
 
-export function encodePreset(p) {
+function encodePreset(p) {
   try {
     const json = JSON.stringify(p);
     const b64 = btoa(unescape(encodeURIComponent(json)));
@@ -31,7 +20,7 @@ export function encodePreset(p) {
   } catch (_) { return ''; }
 }
 
-export function decodePreset(s) {
+function decodePreset(s) {
   try {
     const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
     const pad = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
@@ -42,19 +31,19 @@ export function decodePreset(s) {
   return null;
 }
 
-export let activePresetName = null;
-export function clearActivePresetName() { activePresetName = null; }
+let activePresetName = null;
+function clearActivePresetName() { activePresetName = null; }
 
 const LS_KEY = 'audio-viz-presets-v1';
 
-export function loadSavedPresets() {
+function loadSavedPresets() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch (_) { return []; }
 }
 
-export function persistSavedPresets(list) {
+function persistSavedPresets(list) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (_) {}
 }
 
@@ -64,14 +53,14 @@ let _switchModeCb   = null;
 let _syncControlsCb = null;
 let _markModifiedCb = null;
 
-export function initPresets({ applyTheme, switchMode, syncControlsToParams, markModified }) {
+function initPresets({ applyTheme, switchMode, syncControlsToParams, markModified }) {
   _applyThemeCb   = applyTheme;
   _switchModeCb   = switchMode;
   _syncControlsCb = syncControlsToParams;
   _markModifiedCb = markModified;
 }
 
-export function refreshPresetGrid() {
+function refreshPresetGrid() {
   const grid = document.getElementById('preset-grid');
   if (!grid) return;
   grid.innerHTML = '';
@@ -114,7 +103,7 @@ export function refreshPresetGrid() {
   });
 }
 
-export function applyPreset(preset, writeToHash = true) {
+function applyPreset(preset, writeToHash = true) {
   AudioEngine.setFftSize(preset.fftSize);
   AudioEngine.setSmoothing(preset.smoothing);
   AudioEngine.setGain(preset.gain);
@@ -204,7 +193,7 @@ export function applyPreset(preset, writeToHash = true) {
   refreshPresetGrid();
 }
 
-export function initSavePresetButton(getCurrentMode) {
+function initSavePresetButton(getCurrentMode) {
   document.getElementById('btn-save-preset').addEventListener('click', () => {
     const raw = prompt('Preset name:');
     if (!raw || !raw.trim()) return;

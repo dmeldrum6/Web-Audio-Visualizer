@@ -1,11 +1,7 @@
-import { params } from '../params.js';
-import { THEME, heatR, heatG, heatB } from '../themes.js';
-import { BeatDetector } from '../audio/beat-detector.js';
-import { barHeights } from './bars.js';
 
 let radialAngle    = 0;
-export let radialBeatTime = -Infinity;
-export function setRadialBeatTime(t) { radialBeatTime = t; }
+let radialBeatTime = -Infinity;
+function setRadialBeatTime(t) { radialBeatTime = t; }
 
 /* Returns the distance from center to the boundary of a regular n-gon
    (circumradius R, first vertex at vertex0Angle) at polar angle phi. */
@@ -17,7 +13,7 @@ function polygonBoundaryRadius(n, R, vertex0Angle, phi) {
 }
 
 /* Traces a path for the center-well shape (used for fill + image clip). */
-export function radialCenterPath(ctx, shape, cx, cy, r, angle) {
+function radialCenterPath(ctx, shape, cx, cy, r, angle) {
   ctx.beginPath();
   if (shape === 'square') {
     for (let i = 0; i < 4; i++) {
@@ -38,7 +34,7 @@ export function radialCenterPath(ctx, shape, cx, cy, r, angle) {
   }
 }
 
-export function renderRadial(ctx, freq, W, H, vizFillAlpha, bgState, radialImageState) {
+function renderRadial(ctx, freq, W, H, vizFillAlpha, bgState, radialImageState) {
   if (!freq) return;
 
   const cx        = W / 2;

@@ -1,13 +1,10 @@
-import { params } from '../params.js';
-import { THEME } from '../themes.js';
-import { AudioEngine } from '../audio/engine.js';
 
 function formatTime(secs) {
   secs = Math.max(0, Math.floor(secs));
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 }
 
-export function drawProgressBar(ctx, W, H) {
+function drawProgressBar(ctx, W, H) {
   if (!params.progressBar) return;
   if (AudioEngine.getSourceType() !== 'file') return;
   const dur = AudioEngine.fileGetDuration();
@@ -65,7 +62,7 @@ export function drawProgressBar(ctx, W, H) {
   ctx.restore();
 }
 
-export function drawElapsedTimer(ctx, W, H) {
+function drawElapsedTimer(ctx, W, H) {
   if (!params.showTimer) return;
 
   const pos = AudioEngine.getSourceType() === 'file'

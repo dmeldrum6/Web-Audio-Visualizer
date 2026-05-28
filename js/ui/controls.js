@@ -1,23 +1,6 @@
-import { params } from '../params.js';
-import { THEMES, THEME, buildHeat, hexToHsl, hexToRgb, buildSwatches } from '../themes.js';
-import { AudioEngine } from '../audio/engine.js';
-import { BeatDetector } from '../audio/beat-detector.js';
-import { barHeights, invalidateBarsGrad } from '../renderers/bars.js';
-import { scopeTrail } from '../renderers/scope.js';
-import { clearSpectrogramCanvas } from '../renderers/spectrogram.js';
-import {
-  bgState, radialImageState,
-  loadBackgroundFromFile, clearBackground,
-  loadRadialImageFromFile, clearRadialImage,
-  updateFitButtons, drawGradientBackground,
-} from '../overlays/background.js';
-import { artistCardState } from '../overlays/artist-card.js';
-import { resetOverlayTimer, triggerLowerThird } from '../overlays/text.js';
-import { showToast } from './toast.js';
-import { refreshPresetGrid, activePresetName, applyPreset, BUILT_IN_PRESETS } from './presets.js';
 
-export let modeTransition = null; // { target, startTime }
-export function clearModeTransition() { modeTransition = null; }
+let modeTransition = null; // { target, startTime }
+function clearModeTransition() { modeTransition = null; }
 
 /* These are set by main.js to avoid circular imports */
 let _getCurrentMode = null;
@@ -36,7 +19,7 @@ let _markModifiedFn = null;
 let _toggleRecordFn = null;
 let _cycleModeFn    = null;
 
-export function initControls({
+function initControls({
   getCurrentMode, setCurrentMode,
   getLogicalW, getLogicalH,
   getCanvasWrap,
@@ -54,16 +37,16 @@ export function initControls({
   _cycleModeFn    = cycleMode;
 }
 
-export function markModified() {
+function markModified() {
   if (_markModifiedFn) _markModifiedFn();
 }
 
-export function switchModeAnimated(mode) {
+function switchModeAnimated(mode) {
   if (mode === _getCurrentMode()) return;
   modeTransition = { target: mode, startTime: performance.now() };
 }
 
-export function switchMode(mode, g, spectroCtx2, spectroSW, spectroSH) {
+function switchMode(mode, g, spectroCtx2, spectroSW, spectroSH) {
   _setCurrentMode(mode);
   params.mode = mode;
 
@@ -91,7 +74,7 @@ export function switchMode(mode, g, spectroCtx2, spectroSW, spectroSH) {
   if (mode !== 'scope') scopeTrail.length = 0;
 }
 
-export function syncControlsToParams(currentMode) {
+function syncControlsToParams(currentMode) {
   document.getElementById('ctrl-fft-size').value = params.fftSize;
   document.getElementById('ctrl-smoothing').value = params.smoothing;
   document.getElementById('val-smoothing').textContent = params.smoothing.toFixed(2);
@@ -169,7 +152,7 @@ export function syncControlsToParams(currentMode) {
     params.artistCardTimerEnabled ? '' : 'none';
 }
 
-export function applyTheme(index, canvasWrap, barsGradHRef, vignetteWRef, vignettHRef) {
+function applyTheme(index, canvasWrap, barsGradHRef, vignetteWRef, vignettHRef) {
   params.theme    = index;
   params.themeName = THEMES[index].name;
   const t = THEMES[index];
@@ -180,9 +163,7 @@ export function applyTheme(index, canvasWrap, barsGradHRef, vignetteWRef, vignet
   THEME.mid       = t.midColor;
   THEME.waveRGB   = hexToRgb(t.highlightColor);
 
-  /* Update gradHueBase via the setter in themes.js */
-  const { setGradHueBase } = _themeModule;
-  if (setGradHueBase) setGradHueBase(hexToHsl(t.accentColor)[0]);
+  setGradHueBase(hexToHsl(t.accentColor)[0]);
 
   document.documentElement.style.setProperty('--accent-color', t.highlightColor);
 
@@ -199,11 +180,8 @@ export function applyTheme(index, canvasWrap, barsGradHRef, vignetteWRef, vignet
   });
 }
 
-/* Store reference to themes module for setGradHueBase */
-let _themeModule = {};
-export function setThemeModule(mod) { _themeModule = mod; }
 
-export function initModeButtons(switchModeAnimatedFn, markModifiedFn) {
+function initModeButtons(switchModeAnimatedFn, markModifiedFn) {
   document.getElementById('btn-mode-bars').addEventListener('click', () => {
     switchModeAnimatedFn('bars'); markModifiedFn();
   });
@@ -230,7 +208,7 @@ export function initModeButtons(switchModeAnimatedFn, markModifiedFn) {
   });
 }
 
-export function initAnalyzerControls(markModifiedFn) {
+function initAnalyzerControls(markModifiedFn) {
   document.getElementById('ctrl-fft-size').addEventListener('change', e => {
     const size = parseInt(e.target.value, 10);
     AudioEngine.setFftSize(size);
@@ -253,7 +231,7 @@ export function initAnalyzerControls(markModifiedFn) {
   });
 }
 
-export function initVisualControls(markModifiedFn) {
+function initVisualControls(markModifiedFn) {
   document.getElementById('ctrl-motion').addEventListener('input', e => {
     params.motionAmount = parseFloat(e.target.value);
     document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
@@ -325,7 +303,7 @@ export function initVisualControls(markModifiedFn) {
   });
 }
 
-export function initBeatControls(markModifiedFn, getBeatFlashStart, setBeatFlashStart) {
+function initBeatControls(markModifiedFn, getBeatFlashStart, setBeatFlashStart) {
   document.getElementById('ctrl-beat-enabled').addEventListener('click', e => {
     const on = !BeatDetector.isEnabled();
     BeatDetector.setEnabled(on);
@@ -340,7 +318,7 @@ export function initBeatControls(markModifiedFn, getBeatFlashStart, setBeatFlash
   });
 }
 
-export function initTextOverlayControls(markModifiedFn) {
+function initTextOverlayControls(markModifiedFn) {
   const OVERLAY_STYLE_DEFS = [
     {
       id: 'scroll',
@@ -476,7 +454,7 @@ export function initTextOverlayControls(markModifiedFn) {
   });
 }
 
-export function initBackgroundControls(markModifiedFn) {
+function initBackgroundControls(markModifiedFn) {
   const FIT_DEFS = [
     {
       id: 'cover', label: 'Cover',
@@ -612,7 +590,7 @@ export function initBackgroundControls(markModifiedFn) {
   });
 }
 
-export function initArtistCardControls(markModifiedFn, loadArtistImageFromFile, clearArtistImage) {
+function initArtistCardControls(markModifiedFn, loadArtistImageFromFile, clearArtistImage) {
   document.getElementById('ctrl-artist-card-enabled').addEventListener('click', e => {
     params.artistCardEnabled = !params.artistCardEnabled;
     e.currentTarget.classList.toggle('active', params.artistCardEnabled);
@@ -667,7 +645,7 @@ export function initArtistCardControls(markModifiedFn, loadArtistImageFromFile, 
   });
 }
 
-export function initShortcutsModal() {
+function initShortcutsModal() {
   const shortcutsModal = document.getElementById('shortcuts-modal');
 
   function openShortcutsModal()  { shortcutsModal.classList.remove('hidden'); }
@@ -683,7 +661,7 @@ export function initShortcutsModal() {
   return { openShortcutsModal, closeShortcutsModal };
 }
 
-export function initMobileDrawer(canvasWrap, isMobileFn) {
+function initMobileDrawer(canvasWrap, isMobileFn) {
   const sidebar      = document.getElementById('sidebar');
   const drawerToggle = document.getElementById('drawer-toggle');
   const iconOpen     = document.getElementById('drawer-icon-open');
@@ -706,7 +684,7 @@ export function initMobileDrawer(canvasWrap, isMobileFn) {
   }, { passive: true });
 }
 
-export function initRightPanel() {
+function initRightPanel() {
   const host     = document.getElementById('right-panel-host');
   const navBtns  = Array.from(document.querySelectorAll('.nav-btn[data-panel]'));
   const sections = Array.from(document.querySelectorAll('.panel-section'));

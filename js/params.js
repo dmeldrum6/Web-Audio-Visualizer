@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    PARAMS  — single source of truth for all control state
 ═══════════════════════════════════════════════════════════════ */
-export const params = {
+const params = {
   mode:         'bars',
   fftSize:      8192,
   smoothing:    0.80,

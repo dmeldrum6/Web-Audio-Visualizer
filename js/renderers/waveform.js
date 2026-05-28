@@ -1,10 +1,8 @@
-import { params } from '../params.js';
-import { THEME } from '../themes.js';
 
 let wavePhase = 0;
 let waveYBuf  = new Float32Array(4096);
 
-export function renderWaveform(ctx, time, W, H, vizFillAlpha = 1) {
+function renderWaveform(ctx, time, W, H, vizFillAlpha = 1) {
   if (!time) return;
 
   wavePhase = (wavePhase + 0.004 * params.motionAmount) % 1;

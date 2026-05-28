@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    BEAT DETECTOR
 ═══════════════════════════════════════════════════════════════ */
-export const BeatDetector = (() => {
+const BeatDetector = (() => {
   const HISTORY  = 40;
   const COOLDOWN = 200; /* ms between triggers */
 

@@ -1,4 +1,4 @@
-export class Layer {
+class Layer {
   constructor({ mode = 'bars', opacity = 1.0, blendMode = 'source-over' } = {}) {
     this.id = crypto.randomUUID();
     this.mode = mode;

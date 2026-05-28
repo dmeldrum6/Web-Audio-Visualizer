@@ -1,11 +1,9 @@
-import { params } from '../params.js';
-import { THEME, hexToRgb } from '../themes.js';
 
 /* Scope state — circular buffer of the last 8 frames of (x,y) pairs */
 const SCOPE_TRAIL_FRAMES = 8;
-export const scopeTrail = [];  // array of Float32Array pairs [xs, ys]
+const scopeTrail = [];  // array of Float32Array pairs [xs, ys]
 
-export function renderScope(ctx, time, W, H, vizFillAlpha = 1) {
+function renderScope(ctx, time, W, H, vizFillAlpha = 1) {
   if (!time) return;
 
   const half = Math.floor(time.length / 2);
