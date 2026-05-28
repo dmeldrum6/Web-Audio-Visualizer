@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    THEMES
 ═══════════════════════════════════════════════════════════════ */
-export const THEMES = [
+const THEMES = [
   { name: 'Midnight',   bgColor: '#080c18', accentColor: '#1a3888', highlightColor: '#40d8ff', midColor: '#2060c0' },
   { name: 'Ember',      bgColor: '#0e0604', accentColor: '#8c1a00', highlightColor: '#ff6428', midColor: '#c03010' },
   { name: 'Forest',     bgColor: '#040e04', accentColor: '#0a4010', highlightColor: '#38e060', midColor: '#18a030' },
@@ -10,7 +10,7 @@ export const THEMES = [
   { name: 'Sunrise',    bgColor: '#0c0608', accentColor: '#7a1040', highlightColor: '#ffd060', midColor: '#e04080' },
 ];
 
-export const THEME = {
+const THEME = {
   bgColor:   THEMES[0].bgColor,
   accent:    THEMES[0].accentColor,
   highlight: THEMES[0].highlightColor,
@@ -18,7 +18,7 @@ export const THEME = {
   waveRGB:   [64, 216, 255],
 };
 
-export function hexToRgb(hex) {
+function hexToRgb(hex) {
   return [
     parseInt(hex.slice(1, 3), 16),
     parseInt(hex.slice(3, 5), 16),
@@ -26,7 +26,7 @@ export function hexToRgb(hex) {
   ];
 }
 
-export function hexToHue(hex) {
+function hexToHue(hex) {
   const [rr, gg, bb] = hexToRgb(hex).map(v => v / 255);
   const max = Math.max(rr, gg, bb);
   const min = Math.min(rr, gg, bb);
@@ -39,7 +39,7 @@ export function hexToHue(hex) {
   return h * 60;
 }
 
-export function hexToHsl(hex) {
+function hexToHsl(hex) {
   let [r, g2, b] = hexToRgb(hex);
   r /= 255; g2 /= 255; b /= 255;
   const max = Math.max(r, g2, b), min = Math.min(r, g2, b);
@@ -55,11 +55,11 @@ export function hexToHsl(hex) {
 }
 
 /* Heat colour lookup tables */
-export const heatR = new Uint8Array(256);
-export const heatG = new Uint8Array(256);
-export const heatB = new Uint8Array(256);
+const heatR = new Uint8Array(256);
+const heatG = new Uint8Array(256);
+const heatB = new Uint8Array(256);
 
-export function buildHeat(bgHex, accentHex, midHex, highlightHex) {
+function buildHeat(bgHex, accentHex, midHex, highlightHex) {
   const bg = hexToRgb(bgHex);
   const ac = hexToRgb(accentHex);
   const md = hexToRgb(midHex);
@@ -88,10 +88,10 @@ export function buildHeat(bgHex, accentHex, midHex, highlightHex) {
 buildHeat(THEMES[0].bgColor, THEMES[0].accentColor, THEMES[0].midColor, THEMES[0].highlightColor);
 
 /* gradHueBase is used by gradient background and applyTheme */
-export let gradHueBase = hexToHsl(THEMES[0].accentColor)[0];
-export function setGradHueBase(val) { gradHueBase = val; }
+let gradHueBase = hexToHsl(THEMES[0].accentColor)[0];
+function setGradHueBase(val) { gradHueBase = val; }
 
-export function buildSwatches(onThemeClick) {
+function buildSwatches(onThemeClick) {
   const grid = document.getElementById('swatch-grid');
   THEMES.forEach((t, i) => {
     const sw = document.createElement('div');

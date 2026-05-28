@@ -1,16 +1,14 @@
-import { params } from '../params.js';
-import { THEME } from '../themes.js';
 
 let barsGrad  = null;
 let barsGradH = -1;
 
-export function invalidateBarsGrad() {
+function invalidateBarsGrad() {
   barsGradH = -1;
 }
 
-export const barHeights = new Float32Array(256);
+const barHeights = new Float32Array(256);
 
-export function renderBars(ctx, freq, W, H, vizFillAlpha = 1) {
+function renderBars(ctx, freq, W, H, vizFillAlpha = 1) {
   if (!freq) return;
 
   if (barsGradH !== H) {

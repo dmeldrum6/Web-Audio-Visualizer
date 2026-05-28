@@ -1,8 +1,3 @@
-import { params } from '../params.js';
-import { THEME, hexToHue } from '../themes.js';
-import { AudioEngine } from '../audio/engine.js';
-import { BeatDetector } from '../audio/beat-detector.js';
-import { renderWaveform } from './waveform.js';
 
 /* Particle pool — reused across frames */
 const particlePool = [];
@@ -30,7 +25,7 @@ function spawnParticle(px, py, vx, vy, size) {
   p.lifeDecay = 1 / (60 + Math.random() * 120);
 }
 
-export function renderParticles(ctx, time, W, H, vizFillAlpha) {
+function renderParticles(ctx, time, W, H, vizFillAlpha) {
   const cx = W / 2;
   const cy = H / 2;
 

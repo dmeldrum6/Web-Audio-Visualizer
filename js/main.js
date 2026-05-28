@@ -1,51 +1,3 @@
-import { params } from './params.js';
-import * as themesModule from './themes.js';
-import { THEME, buildSwatches } from './themes.js';
-import { AudioEngine } from './audio/engine.js';
-import { BeatDetector } from './audio/beat-detector.js';
-import { bgState, radialImageState, drawBackground, drawGradientBackground } from './overlays/background.js';
-import { artistCardState, setArtistCardBeatState, drawArtistCard } from './overlays/artist-card.js';
-import { drawTextOverlay, triggerLowerThird } from './overlays/text.js';
-import { drawProgressBar, drawElapsedTimer } from './overlays/progress-bar.js';
-import { applyBloom } from './overlays/bloom.js';
-import { setRadialBeatTime } from './renderers/radial.js';
-import { renderMode } from './renderers/index.js';
-import {
-  modeTransition,
-  clearModeTransition,
-  switchMode,
-  switchModeAnimated,
-  syncControlsToParams,
-  applyTheme,
-  setThemeModule,
-  initControls,
-  initModeButtons,
-  initAnalyzerControls,
-  initVisualControls,
-  initBeatControls,
-  initTextOverlayControls,
-  initBackgroundControls,
-  initArtistCardControls,
-  initShortcutsModal,
-  initMobileDrawer,
-  initRightPanel,
-} from './ui/controls.js';
-import {
-  initPresets,
-  applyPreset,
-  refreshPresetGrid,
-  decodePreset,
-  BUILT_IN_PRESETS,
-  initSavePresetButton,
-  clearActivePresetName,
-} from './ui/presets.js';
-import { showToast } from './ui/toast.js';
-import {
-  isRecording,
-  toggleRecording,
-  initRecordButton,
-  initRecording,
-} from './ui/recording.js';
 
 /* ═══════════════════════════════════════════════════════════════
    CANVAS + RESIZE
@@ -156,7 +108,7 @@ function render(freq, time) {
   /* 1. Clear canvas — solid fill or fading trail */
   g.globalCompositeOperation = 'source-over';
   if (params.trailAlpha > 0) {
-    const [br, bg2, bb] = themesModule.hexToRgb(THEME.bgColor);
+    const [br, bg2, bb] = hexToRgb(THEME.bgColor);
     g.globalAlpha = 1 - params.trailAlpha;
     g.fillStyle   = `rgb(${br},${bg2},${bb})`;
     g.fillRect(0, 0, W, H);
@@ -860,8 +812,6 @@ self.addEventListener('fetch', e => {
    WIRING — connect all modules together
 ═══════════════════════════════════════════════════════════════ */
 
-/* Wire themes module into controls for setGradHueBase */
-setThemeModule(themesModule);
 
 /* Wrap applyTheme to also reset the vignette cache */
 function doApplyTheme(index) {

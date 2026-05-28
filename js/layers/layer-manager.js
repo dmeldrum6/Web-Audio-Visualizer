@@ -1,7 +1,5 @@
-import { Layer } from './layer.js';
-import { renderMode } from '../renderers/index.js';
 
-export class LayerManager {
+class LayerManager {
   constructor() {
     this.layers = [];
   }

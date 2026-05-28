@@ -1,6 +1,3 @@
-import { params } from '../params.js';
-import { THEME, hexToRgb, heatR, heatG, heatB } from '../themes.js';
-import { BeatDetector } from '../audio/beat-detector.js';
 
 const RING_BANDS = [
   { lo: 0,   hi: 3   },  // sub-bass
@@ -13,7 +10,7 @@ const RING_BANDS = [
 const ringValues  = new Float32Array(6);   // smoothed band values 0–1
 const ringRipples = [];                    // { r, startTime }
 
-export function renderRings(ctx, freq, W, H, vizFillAlpha = 1) {
+function renderRings(ctx, freq, W, H, vizFillAlpha = 1) {
   const cx     = W / 2;
   const cy     = H / 2;
   const minDim = Math.min(W, H);

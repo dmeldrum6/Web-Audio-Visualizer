@@ -1,5 +1,3 @@
-import { params } from '../params.js';
-import { heatR, heatG, heatB } from '../themes.js';
 
 const TERRAIN_ROWS = 48;
 let terrainBuf      = null;   // Float32Array of TERRAIN_ROWS * barCount
@@ -13,7 +11,7 @@ function ensureTerrainBuffer(barCount) {
   terrainHead     = 0;
 }
 
-export function renderTerrain(ctx, freq, W, H, vizFillAlpha = 1) {
+function renderTerrain(ctx, freq, W, H, vizFillAlpha = 1) {
   const barCount = params.barCount;
   ensureTerrainBuffer(barCount);
 

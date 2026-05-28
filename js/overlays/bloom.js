@@ -1,7 +1,5 @@
-import { params } from '../params.js';
-import { BeatDetector } from '../audio/beat-detector.js';
 
-export function applyBloom(outputCtx, sourceCanvas, bloomCanvas, bloomCtx, W, H) {
+function applyBloom(outputCtx, sourceCanvas, bloomCanvas, bloomCtx, W, H) {
   if (params.bloomIntensity <= 0) return;
 
   const N         = params.bloomIntensity;

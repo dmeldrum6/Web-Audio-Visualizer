@@ -1,9 +1,8 @@
-import { params } from '../params.js';
 
 /* ═══════════════════════════════════════════════════════════════
    AUDIO ENGINE
 ═══════════════════════════════════════════════════════════════ */
-export const AudioEngine = (() => {
+const AudioEngine = (() => {
   let ctx        = null;
   let analyser   = null;
   let gainNode   = null;

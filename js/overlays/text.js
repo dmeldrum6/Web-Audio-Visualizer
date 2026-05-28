@@ -1,5 +1,3 @@
-import { params } from '../params.js';
-import { hexToRgb } from '../themes.js';
 
 let textOverlayStartTime = performance.now();
 let overlaySpotCanvas = null, overlaySpotCtx = null, overlaySpotW = -1, overlaySpotH = -1;
@@ -9,12 +7,12 @@ const LOWER_THIRD_ANIM_MS = 400;
 let lowerThirdPhase     = 'hidden'; // 'hidden' | 'in' | 'visible' | 'out'
 let lowerThirdAnimStart = 0;
 
-export function triggerLowerThird() {
+function triggerLowerThird() {
   lowerThirdPhase     = 'in';
   lowerThirdAnimStart = performance.now();
 }
 
-export function resetOverlayTimer() {
+function resetOverlayTimer() {
   textOverlayStartTime = performance.now();
 }
 
@@ -269,7 +267,7 @@ function drawLowerThirdOverlay(ctx, W, H, cr, cg, cb) {
   }
 }
 
-export function drawTextOverlay(ctx, logicalW, logicalH) {
+function drawTextOverlay(ctx, logicalW, logicalH) {
   if (!params.overlayEnabled) return;
   const t            = (performance.now() - textOverlayStartTime) / 1000;
   const W            = logicalW, H = logicalH;

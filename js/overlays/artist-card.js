@@ -1,33 +1,30 @@
-import { params } from '../params.js';
-import { THEME, hexToRgb } from '../themes.js';
-import { BeatDetector } from '../audio/beat-detector.js';
 
-export const artistCardState = {
+const artistCardState = {
   image:     null,   /* HTMLImageElement | null */
   objectUrl: null,   /* blob URL to revoke on clear */
 };
 
 /* Artist card beat-pulse state (1.0 = rest, 1.15 = peak) */
-export let artistCardBeatPulse    = 1.0;   // drives image scale
-export let artistCardBgBeatAlpha  = 0.0;   // extra bg alpha on beat (0 = rest)
-export let artistCardGlowAlpha    = 0.0;   // glow text alpha (0 = rest)
+let artistCardBeatPulse    = 1.0;   // drives image scale
+let artistCardBgBeatAlpha  = 0.0;   // extra bg alpha on beat (0 = rest)
+let artistCardGlowAlpha    = 0.0;   // glow text alpha (0 = rest)
 
-export function setArtistCardBeatState(pulse, bgAlpha, glowAlpha) {
+function setArtistCardBeatState(pulse, bgAlpha, glowAlpha) {
   artistCardBeatPulse   = pulse;
   artistCardBgBeatAlpha = bgAlpha;
   artistCardGlowAlpha   = glowAlpha;
 }
 
 /* Artist card record-timer state */
-export let artistCardTimerActive  = false;
-export let artistCardTimerEndTime = 0;
+let artistCardTimerActive  = false;
+let artistCardTimerEndTime = 0;
 
-export function startArtistCardTimer(durationMs) {
+function startArtistCardTimer(durationMs) {
   artistCardTimerActive  = true;
   artistCardTimerEndTime = Date.now() + durationMs;
 }
 
-export function drawArtistCard(ctx, W, H) {
+function drawArtistCard(ctx, W, H) {
   if (!params.artistCardEnabled) return;
 
   /* Timer-driven fade-out triggered by record start */

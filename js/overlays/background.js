@@ -1,7 +1,5 @@
-import { params } from '../params.js';
-import { THEME, hexToRgb, hexToHsl, gradHueBase, setGradHueBase } from '../themes.js';
 
-export const bgState = {
+const bgState = {
   image:      null,   /* HTMLImageElement | null */
   objectUrl:  null,   /* blob URL to revoke on clear */
   pattern:    null,   /* cached CanvasPattern for tile mode */
@@ -10,12 +8,12 @@ export const bgState = {
   patternH:   -1,
 };
 
-export const radialImageState = {
+const radialImageState = {
   image:     null,   /* HTMLImageElement | null */
   objectUrl: null,   /* blob URL to revoke on clear */
 };
 
-export function drawBackground(ctx, W, H) {
+function drawBackground(ctx, W, H) {
   const img = bgState.image;
   if (!img) return;
 
@@ -59,7 +57,7 @@ export function drawBackground(ctx, W, H) {
   ctx.globalCompositeOperation = 'source-over';
 }
 
-export function loadBackgroundFromFile(file) {
+function loadBackgroundFromFile(file) {
   if (bgState.objectUrl) URL.revokeObjectURL(bgState.objectUrl);
   const url = URL.createObjectURL(file);
   bgState.objectUrl = url;
@@ -76,7 +74,7 @@ export function loadBackgroundFromFile(file) {
   img.src = url;
 }
 
-export function loadBackgroundFromDataUrl(dataUrl) {
+function loadBackgroundFromDataUrl(dataUrl) {
   const img = new Image();
   img.onload = () => {
     bgState.image      = img;
@@ -90,7 +88,7 @@ export function loadBackgroundFromDataUrl(dataUrl) {
   img.src = dataUrl;
 }
 
-export function imageToDataUrl(img) {
+function imageToDataUrl(img) {
   const maxDim = 1920;
   const scale  = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
   const c      = document.createElement('canvas');
@@ -100,7 +98,7 @@ export function imageToDataUrl(img) {
   return c.toDataURL('image/jpeg', 0.85);
 }
 
-export function clearBackground() {
+function clearBackground() {
   if (bgState.objectUrl) {
     URL.revokeObjectURL(bgState.objectUrl);
     bgState.objectUrl = null;
@@ -123,7 +121,7 @@ export function clearBackground() {
   updateFitButtons('cover');
 }
 
-export function loadRadialImageFromFile(file) {
+function loadRadialImageFromFile(file) {
   if (radialImageState.objectUrl) URL.revokeObjectURL(radialImageState.objectUrl);
   const url = URL.createObjectURL(file);
   radialImageState.objectUrl = url;
@@ -138,7 +136,7 @@ export function loadRadialImageFromFile(file) {
   img.src = url;
 }
 
-export function loadRadialImageFromDataUrl(dataUrl) {
+function loadRadialImageFromDataUrl(dataUrl) {
   const img = new Image();
   img.onload = () => {
     radialImageState.image = img;
@@ -150,7 +148,7 @@ export function loadRadialImageFromDataUrl(dataUrl) {
   img.src = dataUrl;
 }
 
-export function clearRadialImage() {
+function clearRadialImage() {
   if (radialImageState.objectUrl) {
     URL.revokeObjectURL(radialImageState.objectUrl);
     radialImageState.objectUrl = null;
@@ -167,7 +165,7 @@ export function clearRadialImage() {
   document.getElementById('val-radial-img-opacity').textContent = '1.0';
 }
 
-export function updateFitButtons(fit) {
+function updateFitButtons(fit) {
   document.querySelectorAll('.fit-btn[data-fit]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.fit === fit && !params.bgGradient);
   });
@@ -188,7 +186,7 @@ function _gradBinRms(freq, lo, hi) {
   return Math.sqrt(sum / (end - lo));
 }
 
-export function drawGradientBackground(ctx, W, H, freq) {
+function drawGradientBackground(ctx, W, H, freq) {
   const bassRms = _gradBinRms(freq, 0, 11);
   const midRms  = _gradBinRms(freq, 20, 61);
 
