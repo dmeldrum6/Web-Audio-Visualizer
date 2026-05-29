@@ -8,6 +8,16 @@ const THEMES = [
   { name: 'Neon',       bgColor: '#050508', accentColor: '#8800cc', highlightColor: '#00ffee', midColor: '#cc00ff' },
   { name: 'Monochrome', bgColor: '#080808', accentColor: '#303030', highlightColor: '#d8d8d8', midColor: '#808080' },
   { name: 'Sunrise',    bgColor: '#0c0608', accentColor: '#7a1040', highlightColor: '#ffd060', midColor: '#e04080' },
+  { name: 'Arctic',     bgColor: '#04090f', accentColor: '#0a3050', highlightColor: '#a0f0ff', midColor: '#2090c8' },
+  { name: 'Plasma',     bgColor: '#080410', accentColor: '#6000a0', highlightColor: '#ff40ff', midColor: '#a020e0' },
+  { name: 'Toxic',      bgColor: '#050a02', accentColor: '#2a6000', highlightColor: '#c8ff00', midColor: '#60b000' },
+  { name: 'Inferno',    bgColor: '#0c0400', accentColor: '#880000', highlightColor: '#ffee00', midColor: '#ff5500' },
+  { name: 'Ocean',      bgColor: '#020810', accentColor: '#003060', highlightColor: '#00d8b0', midColor: '#0070a0' },
+  { name: 'Rose',       bgColor: '#0e0408', accentColor: '#701040', highlightColor: '#ff90b0', midColor: '#d03070' },
+  { name: 'Copper',     bgColor: '#080402', accentColor: '#603010', highlightColor: '#ffb860', midColor: '#c06020' },
+  { name: 'Void',       bgColor: '#020204', accentColor: '#100830', highlightColor: '#9060ff', midColor: '#4020b0' },
+  { name: 'Solar',      bgColor: '#0c0800', accentColor: '#804000', highlightColor: '#fff080', midColor: '#e09000' },
+  { name: 'Glacier',    bgColor: '#060c10', accentColor: '#104060', highlightColor: '#c0f8ff', midColor: '#50b0d0' },
 ];
 
 const THEME = {
@@ -107,4 +117,76 @@ function buildSwatches(onThemeClick) {
     if (!sw) return;
     onThemeClick(parseInt(sw.dataset.themeIndex, 10));
   });
+}
+
+/* ── Per-theme cached data for layer-level theme overrides ── */
+const _themeCache = new Map();
+
+function _buildThemeData(index) {
+  const t = THEMES[index];
+  const r = new Uint8Array(256);
+  const g = new Uint8Array(256);
+  const b = new Uint8Array(256);
+  const bg = hexToRgb(t.bgColor);
+  const ac = hexToRgb(t.accentColor);
+  const md = hexToRgb(t.midColor);
+  const hi = hexToRgb(t.highlightColor);
+  const stops = [
+    [0,   bg[0], bg[1], bg[2]],
+    [80,  ac[0], ac[1], ac[2]],
+    [160, md[0], md[1], md[2]],
+    [220, hi[0], hi[1], hi[2]],
+    [255, 255,   255,   255  ],
+  ];
+  for (let v = 0; v < 256; v++) {
+    let lo = stops[0], hi2 = stops[1];
+    for (let s = 1; s < stops.length - 1; s++) {
+      if (v >= stops[s][0]) { lo = stops[s]; hi2 = stops[s + 1]; }
+    }
+    const tt = lo[0] === hi2[0] ? 1 : (v - lo[0]) / (hi2[0] - lo[0]);
+    r[v] = Math.round(lo[1] + (hi2[1] - lo[1]) * tt);
+    g[v] = Math.round(lo[2] + (hi2[2] - lo[2]) * tt);
+    b[v] = Math.round(lo[3] + (hi2[3] - lo[3]) * tt);
+  }
+  return {
+    bgColor:   t.bgColor,
+    accent:    t.accentColor,
+    highlight: t.highlightColor,
+    mid:       t.midColor,
+    waveRGB:   hexToRgb(t.highlightColor),
+    heatR: r, heatG: g, heatB: b,
+  };
+}
+
+function getThemeData(index) {
+  if (!_themeCache.has(index)) _themeCache.set(index, _buildThemeData(index));
+  return _themeCache.get(index);
+}
+
+/* Temporarily override the global THEME + heat tables for a single layer render,
+   then restore to globalThemeIndex. Returns a restore function. */
+function pushLayerTheme(index) {
+  const saved = {
+    bgColor:   THEME.bgColor,
+    accent:    THEME.accent,
+    highlight: THEME.highlight,
+    mid:       THEME.mid,
+    waveRGB:   THEME.waveRGB,
+    heatR: heatR.slice(), heatG: heatG.slice(), heatB: heatB.slice(),
+  };
+  const d = getThemeData(index);
+  THEME.bgColor   = d.bgColor;
+  THEME.accent    = d.accent;
+  THEME.highlight = d.highlight;
+  THEME.mid       = d.mid;
+  THEME.waveRGB   = d.waveRGB;
+  heatR.set(d.heatR); heatG.set(d.heatG); heatB.set(d.heatB);
+  return function restoreTheme() {
+    THEME.bgColor   = saved.bgColor;
+    THEME.accent    = saved.accent;
+    THEME.highlight = saved.highlight;
+    THEME.mid       = saved.mid;
+    THEME.waveRGB   = saved.waveRGB;
+    heatR.set(saved.heatR); heatG.set(saved.heatG); heatB.set(saved.heatB);
+  };
 }

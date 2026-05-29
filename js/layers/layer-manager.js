@@ -33,7 +33,9 @@ class LayerManager {
       if (!layer.visible) continue;
       layer.ensureCanvas(W, H);
       layer.ctx.clearRect(0, 0, W, H);
+      const restore = layer.themeIndex !== null ? pushLayerTheme(layer.themeIndex) : null;
       renderMode(layer.ctx, layer.mode, freq, time, W, H, vizFillAlpha, bgState, radialImageState);
+      if (restore) restore();
       outputCtx.globalAlpha = layer.opacity;
       outputCtx.globalCompositeOperation = layer.blendMode;
       outputCtx.drawImage(layer.canvas, 0, 0);
