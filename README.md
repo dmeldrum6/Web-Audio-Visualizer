@@ -27,7 +27,6 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 - **Preset system** — eight built-in presets plus save/load via localStorage
 - **URL sharing** — encode any preset as a shareable link via URL hash
 - **PWA support** — installable and works offline
-- **Single file** — no build step, no dependencies, no server required
 
 ---
 
