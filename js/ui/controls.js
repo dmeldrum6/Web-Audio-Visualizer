@@ -979,6 +979,16 @@ function _renderLayerList(container, markModifiedFn) {
   lm.layers.forEach((layer, idx) => {
     const div = document.createElement('div');
     div.className = 'layer-row';
+    const layerThemeMiniSwatches = THEMES.map((t, ti) => {
+      const isActive = layer.themeIndex === ti;
+      const isGlobal = layer.themeIndex === null && ti === params.theme;
+      return `<div class="layer-theme-dot ${isActive ? 'active' : ''}"
+        data-ti="${ti}"
+        title="${t.name}"
+        style="background:linear-gradient(135deg,${t.bgColor} 0%,${t.accentColor} 50%,${t.highlightColor} 100%);${isGlobal?'outline:1px dashed #888;':''}">
+      </div>`;
+    }).join('');
+
     div.innerHTML = `
       <div class="layer-row-header">
         <span class="layer-idx">${idx + 1}</span>
@@ -987,6 +997,13 @@ function _renderLayerList(container, markModifiedFn) {
         </select>
         <button class="toggle-btn ${layer.visible?'active':''} layer-vis-btn" title="Toggle visibility"></button>
         <button class="btn layer-del-btn" title="Remove layer" style="padding:3px 7px;font-size:11px">✕</button>
+      </div>
+      <div style="margin-top:6px">
+        <div style="font-size:11px;color:#888;margin-bottom:4px">Theme <span class="layer-theme-name">${layer.themeIndex !== null ? THEMES[layer.themeIndex].name : '(Global)'}</span></div>
+        <div class="layer-theme-dots">
+          <div class="layer-theme-dot ${layer.themeIndex === null ? 'active' : ''}" data-ti="null" title="Use global theme" style="background:#1a1a1a;border:1px solid #444;font-size:9px;display:flex;align-items:center;justify-content:center;color:#888">↩</div>
+          ${layerThemeMiniSwatches}
+        </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
         <div style="flex:1;min-width:80px">
@@ -1021,6 +1038,16 @@ function _renderLayerList(container, markModifiedFn) {
       if (lm.layers.length === 0) params.layersEnabled = false;
       _renderLayerList(container, markModifiedFn);
       _syncLayerEnabledBtn();
+      markModifiedFn();
+    });
+
+    div.querySelector('.layer-theme-dots').addEventListener('click', e => {
+      const dot = e.target.closest('.layer-theme-dot');
+      if (!dot) return;
+      const ti = dot.dataset.ti;
+      layer.themeIndex = ti === 'null' ? null : parseInt(ti, 10);
+      div.querySelectorAll('.layer-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.ti === dot.dataset.ti));
+      div.querySelector('.layer-theme-name').textContent = layer.themeIndex !== null ? THEMES[layer.themeIndex].name : '(Global)';
       markModifiedFn();
     });
 
