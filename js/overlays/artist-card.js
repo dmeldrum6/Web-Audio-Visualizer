@@ -21,7 +21,7 @@ let artistCardTimerEndTime = 0;
 
 function startArtistCardTimer(durationMs) {
   artistCardTimerActive  = true;
-  artistCardTimerEndTime = Date.now() + durationMs;
+  artistCardTimerEndTime = Clock.now() + durationMs;
 }
 
 function drawArtistCard(ctx, W, H) {
@@ -30,7 +30,7 @@ function drawArtistCard(ctx, W, H) {
   /* Timer-driven fade-out triggered by record start */
   let timerAlpha = 1.0;
   if (artistCardTimerActive) {
-    const remaining = artistCardTimerEndTime - Date.now();
+    const remaining = artistCardTimerEndTime - Clock.now();
     if (remaining <= 0) {
       artistCardTimerActive = false;
       return;

@@ -4,32 +4,36 @@
    Modes: vhs | crt | grain | glitch | chroma
 ═══════════════════════════════════════════════════════════════ */
 
-/* Grain: cached noise canvas refreshed every other frame */
-let _grainCanvas = null;
-let _grainCtx    = null;
-let _grainFrame  = 0;
+/* Grain: a few small pre-generated noise tiles, tiled across the frame
+   with a random offset each frame. Generating full-frame noise every
+   frame cost ~33M random numbers per refresh at 4K. */
+const GRAIN_TILE   = 256;
+const GRAIN_FRAMES = 6;
+let _grainTiles    = null;   /* CanvasPattern[] */
+let _grainTilesCtx = null;   /* context the patterns were created on */
+let _grainFrame    = 0;
 
-function _ensureGrain(W, H) {
-  if (!_grainCanvas || _grainCanvas.width !== W || _grainCanvas.height !== H) {
-    _grainCanvas = document.createElement('canvas');
-    _grainCanvas.width  = W;
-    _grainCanvas.height = H;
-    _grainCtx = _grainCanvas.getContext('2d');
-    _grainFrame = 0;
+function _ensureGrain(ctx) {
+  if (_grainTiles && _grainTilesCtx === ctx) return;
+  _grainTiles = [];
+  for (let f = 0; f < GRAIN_FRAMES; f++) {
+    const c  = document.createElement('canvas');
+    c.width  = GRAIN_TILE;
+    c.height = GRAIN_TILE;
+    const cx = c.getContext('2d');
+    const id = cx.createImageData(GRAIN_TILE, GRAIN_TILE);
+    const d  = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const v  = (Math.random() * 255) | 0;
+      d[i]     = v;
+      d[i + 1] = v;
+      d[i + 2] = v;
+      d[i + 3] = (Math.random() * 80) | 0;
+    }
+    cx.putImageData(id, 0, 0);
+    _grainTiles.push(ctx.createPattern(c, 'repeat'));
   }
-}
-
-function _buildGrain(W, H) {
-  const id = _grainCtx.createImageData(W, H);
-  const d  = id.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const v   = (Math.random() * 255) | 0;
-    d[i]      = v;
-    d[i + 1]  = v;
-    d[i + 2]  = v;
-    d[i + 3]  = (Math.random() * 80) | 0;
-  }
-  _grainCtx.putImageData(id, 0, 0);
+  _grainTilesCtx = ctx;
 }
 
 /* Glitch: working canvas for row-slice displacement */
@@ -54,9 +58,9 @@ function _applyVHS(ctx, W, H, intensity) {
 
   /* Scanlines */
   ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 0.18 * intensity;
+  ctx.fillStyle   = '#000';
   for (let y = 0; y < H; y += 3) {
-    ctx.globalAlpha = 0.18 * intensity;
-    ctx.fillStyle   = '#000';
     ctx.fillRect(0, y, W, 1);
   }
 
@@ -141,21 +145,28 @@ function _applyCRT(ctx, W, H, intensity) {
 
 /* ── FILM GRAIN ───────────────────────────────────────────── */
 function _applyFilmGrain(ctx, W, H, intensity) {
-  _ensureGrain(W, H);
-  /* Rebuild noise every 2 frames for subtle animation */
-  if (++_grainFrame % 2 === 0) _buildGrain(W, H);
+  _ensureGrain(ctx);
+  /* New tile + offset every 2 frames for subtle animation */
+  if (++_grainFrame % 2 === 0) {
+    _applyFilmGrain.tile = (Math.random() * GRAIN_FRAMES) | 0;
+    _applyFilmGrain.ox   = (Math.random() * GRAIN_TILE) | 0;
+    _applyFilmGrain.oy   = (Math.random() * GRAIN_TILE) | 0;
+  }
+  const pat = _grainTiles[_applyFilmGrain.tile || 0];
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   ctx.globalAlpha              = 0.18 * intensity;
-  ctx.drawImage(_grainCanvas, 0, 0);
+  ctx.translate(-(_applyFilmGrain.ox || 0), -(_applyFilmGrain.oy || 0));
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, W + GRAIN_TILE, H + GRAIN_TILE);
   ctx.restore();
 }
 
 /* ── GLITCH ───────────────────────────────────────────────── */
 function _applyGlitch(ctx, W, H, intensity) {
   _ensureGlitch(W, H);
-  const now = performance.now();
+  const now = Clock.now();
 
   if (now > _glitchNext) {
     /* Schedule next glitch event */

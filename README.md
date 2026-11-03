@@ -1,6 +1,6 @@
 # Web-Audio-Visualizer
 
-A browser-based audio visualizer that reacts in real time to your microphone or local audio files. Create live visuals, record clips for YouTube and social media, or use it as an ambient display — all from a single HTML file with no install required.
+A browser-based audio visualizer that reacts in real time to your microphone or local audio files. Create live visuals, record clips for YouTube and social media, or use it as an ambient display. Plain HTML, CSS and JavaScript: no build step and nothing to install.
 
 <img width="1917" height="901" alt="image" src="https://github.com/user-attachments/assets/068002af-dc16-4fbb-9466-bbd4da53ada8" />
 *Radial mode with ember theme*
@@ -14,7 +14,10 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 - **BPM Lock / Tempo Sync** — tap-tempo or manual BPM entry, with subdivision control (whole / half / quarter / eighth note) so beat events fire locked to the tempo rather than chasing peaks
 - **Aesthetic FX** — five post-processing passes (VHS, CRT, Film Grain, Glitch, Chromatic Aberration) with intensity control, applied after all rendering and bloom
 - **Per-element audio bindings** — four independent canvas elements (circle, bar strip, ring, label) each individually bound to bass / mids / highs with configurable amplitude range
+- **Frame-perfect MP4 export** — render a whole song offline, frame by frame, at 1080p / 1440p / 4K and 30 or 60 fps. No dropped frames whatever the effects, and the original audio is carried over untouched
+- **Record Song** — one click rewinds, records the full track in real time, and saves automatically when it ends
 - **4K / custom resolution export** — choose 1080p, 1440p, or 4K (2160p) from the top bar before recording; canvas and bitrate scale automatically
+- **Musical (log) frequency axis** — bars, radial, terrain and spectrogram spread 30 Hz – 16 kHz evenly per octave, so bass and vocals get as much space as treble
 - **Two audio inputs** — microphone or local audio file
 - **Full file playback controls** — play, pause, stop, seek, loop, and variable playback speed
 - **Beat detection** — real-time onset detection drives flash effects, particle bursts, and ring ripples
@@ -22,8 +25,8 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 - **Motion trail** — persistent canvas decay for ghost-echo and smear effects
 - **Text overlay system** — seven animation styles composited directly onto the canvas, including a broadcast-style lower third
 - **Audio-reactive background gradient** — procedural background that shifts hue and saturation with the music
-- **YouTube Mode** — 16:9 canvas lock at the chosen export resolution, high-bitrate VP9 recording
-- **Theme engine** — six built-in color themes, applied instantly
+- **YouTube Mode** — 16:9 canvas lock at the chosen export resolution, high-bitrate recording
+- **Theme engine** — sixteen built-in color themes, applied instantly, with per-layer overrides
 - **Preset system** — eight built-in presets plus save/load via localStorage
 - **URL sharing** — encode any preset as a shareable link via URL hash
 - **PWA support** — installable and works offline
@@ -32,11 +35,11 @@ A browser-based audio visualizer that reacts in real time to your microphone or 
 
 ## Quick Start
 
-1. Download `visualizer.html`
-2. Open it in Chrome or Edge
+1. Download or clone the whole repository (`visualizer.html` loads the `css/` and `js/` folders next to it)
+2. Open `visualizer.html` in Chrome or Edge
 3. Click **Use Mic** or **Load File** to begin
 4. Pick a visualizer mode and theme from the sidebar
-5. Hit **Record** when you're ready to capture
+5. Click **Export MP4** to render the whole song, or **Record** / **Record Song** to capture in real time
 
 > Safari has limited recording support. For best results use Chrome or Edge.
 
@@ -132,7 +135,10 @@ A scrolling 3D-perspective frequency landscape rendered with Canvas 2D. Each ani
 |---|---|---|
 | FFT size | 2048 – 32768 | Frequency resolution. Higher = more detail, more CPU |
 | Smoothing | 0 – 0.95 | Temporal averaging. Higher = slower, smoother response |
-| Gain | 0.1 – 4.0 | Input amplification before analysis |
+| Gain | 0.1 – 4.0 | How strongly the visuals react. Affects the analysis only, not the audio you hear or record |
+| Log Frequency Scale | on / off | On (default): 30 Hz – 16 kHz spaced evenly per octave. Off: the original linear axis |
+
+Beat detection and the Rings bands are defined in Hz (kick: 30–150 Hz, hats/snare: 6–14 kHz), so they behave the same at every FFT size.
 
 ---
 
@@ -256,6 +262,8 @@ Click any swatch to apply a theme instantly. The active theme is shown with a wh
 | Monochrome | Grayscale |
 | Sunrise | Dark background, pink and gold |
 
+Plus Arctic, Plasma, Toxic, Inferno, Ocean, Rose, Copper, Void, Solar and Glacier. Each layer in the compositor can override the global theme.
+
 ---
 
 ## Presets
@@ -318,31 +326,53 @@ Text overlay settings are saved as part of presets and encoded in shared URLs.
 
 ---
 
-## Recording
+## Exporting Video
 
-Click **Record** in the top bar to begin. The canvas and audio are mixed together into a single WebM file.
+There are three ways to get a video out. All of them carry the song's audio **exactly as loaded**: the Gain slider and analyser only drive the visuals and are never applied to the recorded sound.
 
-- Format: WebM (VP9 + Opus), falling back to VP8 if VP9 is unavailable
-- Resolution: selected from the dropdown next to the YT button (1080p / 1440p / 4K / Native)
-- Bitrate scales with resolution: 12 Mbps at 1080p, 20 Mbps at 1440p, 45 Mbps at 4K
+### Export MP4 (recommended for finished songs)
+
+Click **Export MP4** (requires a loaded file), pick resolution and frame rate, then **Start export**.
+
+- The song is rendered **offline, frame by frame**: an `OfflineAudioContext` replays it through an analyser with your current FFT size, smoothing and gain, and the normal render pipeline draws each frame at exactly 1/60 s steps of song time
+- No dropped frames, however heavy the layers, bloom or FX. A slow machine simply takes longer. Progress, speed and time left are shown while it runs
+- Output: MP4. Video is H.264 (falling back to VP9 or AV1 if needed); audio is AAC 320 kbps where the browser can encode AAC, otherwise Opus 256 kbps
+- In Chrome/Edge you choose where to save before rendering starts, and the file is **streamed to disk**, so memory stays flat even for long 4K renders. Elsewhere the file is built in memory and downloaded at the end
+- The file is named after the song, e.g. `My Song - 2160p-60fps.mp4`
+- Requires WebCodecs (Chrome / Edge 94+). Use **Record Song** in other browsers
+
+### Record Song
+
+Click **Record Song** (requires a loaded file). It rewinds to 0:00, starts recording, plays the track after a 0.5 s lead-in, and stops and saves automatically 0.75 s after the song ends. Loop is suspended during the take and restored afterwards. Clicking **Stop** ends the take early.
+
+### Record
+
+Click **Record** (or press `R`) to capture whatever is happening, from mic or file, until you stop.
+
+Real-time recording details (Record and Record Song):
+
+- Format: MP4 (H.264 + AAC) where the browser supports it, otherwise WebM (VP9/VP8 + Opus)
+- Frame rate: 30 or 60 fps, from the selector next to the resolution dropdown
+- Video bitrate scales with pixel rate (~12 Mbps at 1080p30, ~50 Mbps at 4K30, max 80 Mbps); audio 320 kbps
 - Canvas enters the selected resolution mode automatically at record-start and restores on stop
 - Max duration: 60 minutes (auto-stops with a warning at 59:50)
-- Output: auto-downloaded as `visualizer-{timestamp}.webm`
+- Real-time capture can drop frames if rendering can't keep up (heavy effects at 4K), and stalls if the tab is hidden. **Export MP4** avoids both
+- Mic input is recorded but no longer played back through the speakers, which prevents feedback
 
-> **Safari:** MediaRecorder support is limited. Recording is available in Chrome and Edge.
+> **Safari:** MediaRecorder support is limited, and there is no WebCodecs export. For best results use Chrome or Edge.
 
 ---
 
 ## Export Resolution
 
-Select a resolution from the dropdown in the top bar before hitting **Record** or **YT Mode**:
+Select a resolution and frame rate from the dropdowns in the top bar before hitting **Record** or **YT Mode**:
 
-| Option | Canvas size | Bitrate |
+| Option | Canvas size | Bitrate (30 fps / 60 fps) |
 |---|---|---|
-| 1080p | 1920 × 1080 | 12 Mbps VP9 |
-| 1440p | 2560 × 1440 | 20 Mbps VP9 |
-| 4K (2160p) | 3840 × 2160 | 45 Mbps VP9 |
-| Native | Window size | ~5 Mbps VP9 |
+| 1080p | 1920 × 1080 | ~12 / 25 Mbps |
+| 1440p | 2560 × 1440 | ~22 / 44 Mbps |
+| 4K (2160p) | 3840 × 2160 | ~50 / 80 Mbps |
+| Native | Window size | scaled to window size (min 8 Mbps) |
 
 The YT Mode button shows the currently selected resolution. When you start recording in a non-native resolution the canvas resizes automatically; when recording stops it returns to window-fit mode.
 
@@ -358,7 +388,7 @@ Click the **YT** resolution button in the top bar to lock the canvas to a fixed 
 |---|---|
 | Canvas aspect ratio | Locked to 16:9. Canvas scales to fill the window with black bars if needed |
 | Internal resolution | Set by the resolution selector (1080p default) |
-| Recording bitrate | Scales with resolution; VP9 preferred over VP8 |
+| Recording bitrate | Scales with resolution and frame rate |
 | Composition guide | A faint dashed border shows the capture area while YT Mode is active. The guide hides during recording |
 
 YouTube Mode is designed to be paired with the **Lower Third** overlay and the **Progress Bar** for a complete music-video presentation.
@@ -403,10 +433,10 @@ On screens narrower than 768px the sidebar collapses into a bottom drawer. Tap t
 
 | Browser | Visualizer | Recording | Notes |
 |---|---|---|---|
-| Chrome | ✅ | ✅ | Recommended |
-| Edge | ✅ | ✅ | |
-| Firefox | ✅ | ✅ | WebM supported |
-| Safari | ✅ | ⚠️ | No MediaRecorder for WebM |
+| Chrome | ✅ | ✅ | Recommended — Export MP4 supported |
+| Edge | ✅ | ✅ | Export MP4 supported |
+| Firefox | ✅ | ✅ | WebM recording; Export MP4 depends on WebCodecs support |
+| Safari | ✅ | ⚠️ | Limited MediaRecorder; no Export MP4 |
 | iOS Safari | ✅ | ⚠️ | Tap-to-unlock required |
 
 ---
@@ -414,12 +444,16 @@ On screens narrower than 768px the sidebar collapses into a bottom drawer. Tap t
 ### Audio graph
 
 ```
-MediaStream (mic)  ─┐
-                    ├─→ GainNode → AnalyserNode → DynamicsCompressor → AudioContext.destination
-BufferSource (file)─┘       │            │
-                            │            └─→ BeatDetector (reads frequency + time-domain data)
-                            └─→ MediaStreamDestination (for recording)
+                      ┌─→ GainNode → AnalyserNode ─→ (muted) → destination     visuals only
+MediaStream (mic) ────┤                  └─→ BeatDetector / renderers
+                      └─────────────────────────→ MediaStreamDestination      recording
+
+                      ┌─→ GainNode → AnalyserNode ─→ (muted) → destination     visuals only
+BufferSource (file) ──┼─→ monitor bus ───────────→ AudioContext.destination  speakers
+                      └─────────────────────────→ MediaStreamDestination      recording
 ```
+
+Export MP4 builds the same analysis chain in an `OfflineAudioContext` and encodes the decoded file's samples directly.
 
 ---
 
@@ -435,8 +469,10 @@ BufferSource (file)─┘       │            │
 8. Add a **Lower Third** overlay with the song title and artist name; adjust Duration or leave it always visible
 9. Enable the **Progress Bar** overlay so viewers can see where they are in the track
 10. Dial in **Bloom** and **Trail** to taste — a little of both goes a long way
-11. Hit **Record**, let the track play from the beginning, then stop
-12. The WebM downloads automatically — ready to upload directly to YouTube or trim in your editor
+11. Click **Export MP4**, choose 4K and 30 or 60 fps, and pick where to save
+12. Upload the MP4 to YouTube. The audio is the original song with no processing, encoded once at a high bitrate
+
+(If your browser doesn't support Export MP4, use **Record Song** instead: it rewinds, records, and saves automatically when the song ends.)
 
 ---
 

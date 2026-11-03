@@ -79,8 +79,10 @@ function refreshPresetGrid() {
     card.className = 'preset-card' + (isActive ? ' active' : '');
     card.innerHTML =
       `<span class="preset-dot" style="background:${themeColor}"></span>` +
-      `<span class="preset-name">${preset.name}</span>` +
+      `<span class="preset-name"></span>` +
       (preset._saved ? `<button class="preset-delete" title="Delete">&#x2715;</button>` : '');
+
+    card.querySelector('.preset-name').textContent = preset.name;
 
     card.addEventListener('click', e => {
       if (e.target.closest('.preset-delete')) return;
@@ -107,6 +109,7 @@ function applyPreset(preset, writeToHash = true) {
   AudioEngine.setFftSize(preset.fftSize);
   AudioEngine.setSmoothing(preset.smoothing);
   AudioEngine.setGain(preset.gain);
+  params.freqScale    = preset.freqScale ?? 'log';
   params.motionAmount = preset.motionAmount;
   params.trailAlpha   = preset.trailAlpha   ?? 0.0;
   params.mirror       = preset.mirror;
@@ -205,6 +208,7 @@ function initSavePresetButton(getCurrentMode) {
       fftSize:      params.fftSize,
       smoothing:    params.smoothing,
       gain:         params.gain,
+      freqScale:    params.freqScale,
       motionAmount: params.motionAmount,
       trailAlpha:   params.trailAlpha,
       mirror:       params.mirror,

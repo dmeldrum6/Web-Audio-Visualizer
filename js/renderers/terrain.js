@@ -20,13 +20,9 @@ function renderTerrain(ctx, freq, W, H, vizFillAlpha = 1) {
   for (let s = 0; s < steps; s++) {
     const rowOff = terrainHead * barCount;
     if (freq) {
-      const binCount = freq.length;
+      const edges = getBandEdges(barCount, freq.length);
       for (let i = 0; i < barCount; i++) {
-        const lo = Math.floor(i       * binCount / barCount);
-        const hi = Math.floor((i + 1) * binCount / barCount);
-        let sum = 0;
-        for (let b = lo; b < hi; b++) sum += freq[b];
-        terrainBuf[rowOff + i] = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
+        terrainBuf[rowOff + i] = bandValue(freq, edges, i);
       }
     } else {
       terrainBuf.fill(0, rowOff, rowOff + barCount);

@@ -53,7 +53,7 @@ function markModified() {
 
 function switchModeAnimated(mode) {
   if (mode === _getCurrentMode()) return;
-  modeTransition = { target: mode, startTime: performance.now() };
+  modeTransition = { target: mode, startTime: Clock.now() };
 }
 
 function switchMode(mode, g, spectroCtx2, spectroSW, spectroSH) {
@@ -90,6 +90,7 @@ function syncControlsToParams(currentMode) {
   document.getElementById('val-smoothing').textContent = params.smoothing.toFixed(2);
   document.getElementById('ctrl-gain').value = params.gain;
   document.getElementById('val-gain').textContent = params.gain.toFixed(1);
+  document.getElementById('ctrl-freq-log').classList.toggle('active', params.freqScale !== 'linear');
   document.getElementById('ctrl-motion').value = params.motionAmount;
   document.getElementById('val-motion').textContent = params.motionAmount.toFixed(2);
   document.getElementById('ctrl-trail').value = params.trailAlpha;
@@ -270,6 +271,14 @@ function initAnalyzerControls(markModifiedFn) {
     const val = parseFloat(e.target.value);
     document.getElementById('val-gain').textContent = val.toFixed(1);
     AudioEngine.setGain(val);
+    markModifiedFn();
+  });
+
+  document.getElementById('ctrl-freq-log').addEventListener('click', e => {
+    params.freqScale = params.freqScale === 'linear' ? 'log' : 'linear';
+    e.currentTarget.classList.toggle('active', params.freqScale !== 'linear');
+    barHeights.fill(0);
+    clearSpectrogramCanvas();
     markModifiedFn();
   });
 }
@@ -1130,4 +1139,11 @@ function initRecordingControls(markModifiedFn) {
     if (_updateYtLabelFn) _updateYtLabelFn();
     markModifiedFn();
   });
+  const fpsSel = document.getElementById('ctrl-record-fps');
+  if (fpsSel) {
+    fpsSel.value = String(params.recordFps || 30);
+    fpsSel.addEventListener('change', () => {
+      params.recordFps = parseInt(fpsSel.value, 10) || 30;
+    });
+  }
 }

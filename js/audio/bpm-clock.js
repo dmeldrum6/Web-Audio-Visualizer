@@ -7,11 +7,11 @@ const BPMClock = (() => {
   let _bpm          = 120;
   let _subdivision  = 1;   /* beats per bar: 1=whole, 2=half, 4=quarter, 8=eighth */
   let _tapTimes     = [];
-  let _startTime    = performance.now();
+  let _startTime    = Clock.now();
   let _lastBeatIdx  = -1;
 
   function tap() {
-    const now = performance.now();
+    const now = Clock.now();
     _tapTimes.push(now);
     if (_tapTimes.length > 8) _tapTimes.shift();
     if (_tapTimes.length >= 2) {
@@ -26,7 +26,7 @@ const BPMClock = (() => {
 
   function reset() {
     _tapTimes  = [];
-    _startTime = performance.now();
+    _startTime = Clock.now();
     _lastBeatIdx = -1;
   }
 
@@ -40,7 +40,7 @@ const BPMClock = (() => {
     if (!_enabled) return 0;
     const beatMs = 60000 / _bpm;
     const subMs  = beatMs / _subdivision;
-    const elapsed = performance.now() - _startTime;
+    const elapsed = Clock.now() - _startTime;
     return (elapsed % subMs) / subMs;
   }
 
@@ -49,7 +49,7 @@ const BPMClock = (() => {
     if (!_enabled) return false;
     const beatMs  = 60000 / _bpm;
     const subMs   = beatMs / _subdivision;
-    const elapsed = performance.now() - _startTime;
+    const elapsed = Clock.now() - _startTime;
     const idx     = Math.floor(elapsed / subMs);
     if (idx !== _lastBeatIdx) {
       _lastBeatIdx = idx;

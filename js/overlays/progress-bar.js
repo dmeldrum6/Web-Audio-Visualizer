@@ -4,13 +4,23 @@ function formatTime(secs) {
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 }
 
+/* Song position source. The offline exporter sets an override so the
+   overlays follow the frame being rendered, not the live transport. */
+let _songTimeOverride = null;
+function setSongTimeOverride(seconds) { _songTimeOverride = seconds; }
+
+function getSongPosition() {
+  if (_songTimeOverride !== null) return _songTimeOverride;
+  return AudioEngine.getSourceType() === 'file' ? AudioEngine.fileGetOffset() : 0;
+}
+
 function drawProgressBar(ctx, W, H) {
   if (!params.progressBar) return;
   if (AudioEngine.getSourceType() !== 'file') return;
   const dur = AudioEngine.fileGetDuration();
   if (dur <= 0) return;
 
-  const pos      = AudioEngine.fileGetOffset();
+  const pos      = getSongPosition();
   const progress = Math.min(1, pos / dur);
   const fillW    = progress * W;
 
@@ -65,9 +75,7 @@ function drawProgressBar(ctx, W, H) {
 function drawElapsedTimer(ctx, W, H) {
   if (!params.showTimer) return;
 
-  const pos = AudioEngine.getSourceType() === 'file'
-    ? AudioEngine.fileGetOffset()
-    : 0;
+  const pos = getSongPosition();
 
   const mins = Math.floor(pos / 60);
   const secs = Math.floor(pos) % 60;
