@@ -44,7 +44,7 @@ function renderRadial(ctx, freq, W, H, vizFillAlpha, bgState, radialImageState) 
   const outerMax  = minDim * 0.46;
 
   /* Beat pulse: scale inner radius up 8%, lerp back over 200 ms */
-  const beatElapsed = performance.now() - radialBeatTime;
+  const beatElapsed = Clock.now() - radialBeatTime;
   const beatScale   = beatElapsed < 200
     ? 1.0 + 0.08 * (1 - beatElapsed / 200)
     : 1.0;
@@ -54,7 +54,7 @@ function renderRadial(ctx, freq, W, H, vizFillAlpha, bgState, radialImageState) 
   radialAngle += 0.001 * params.motionAmount;
 
   const barCount = params.barCount;
-  const binCount = freq.length;
+  const edges    = getBandEdges(barCount, freq.length);
   const smoothK  = 0.08 + 0.14 * params.motionAmount;
   const shape    = params.radialShape || 'circle';
 
@@ -69,12 +69,7 @@ function renderRadial(ctx, freq, W, H, vizFillAlpha, bgState, radialImageState) 
 
   for (let i = 0; i < barCount; i++) {
     const srcI = (params.mirror && i >= barCount / 2) ? barCount - 1 - i : i;
-
-    const lo = Math.floor(srcI       * binCount / barCount);
-    const hi = Math.floor((srcI + 1) * binCount / barCount);
-    let sum = 0;
-    for (let b = lo; b < hi; b++) sum += freq[b];
-    const newVal = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
+    const newVal = bandValue(freq, edges, srcI);
 
     barHeights[i] += (newVal - barHeights[i]) * smoothK;
     const barH = barHeights[i] * (outerMax - innerRadius);

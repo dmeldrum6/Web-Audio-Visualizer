@@ -1,15 +1,27 @@
 
+/* RMS (0–1) of a byte time-domain buffer */
+function computeRMS(time) {
+  if (!time) return 0;
+  let sum = 0;
+  const len = time.length;
+  for (let i = 0; i < len; i++) {
+    const s = (time[i] - 128) / 128;
+    sum += s * s;
+  }
+  return Math.sqrt(sum / len);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    AUDIO ENGINE
 ═══════════════════════════════════════════════════════════════ */
 const AudioEngine = (() => {
   let ctx        = null;
   let analyser   = null;
-  let gainNode   = null;
-  let compressor = null;
+  let gainNode   = null;  /* analysis gain — affects visuals only */
+  let monitorBus = null;  /* untouched audio → speakers */
+  let streamDest = null;  /* untouched audio → recorder */
   let freqBuf    = null;
   let timeBuf    = null;
-  let streamDest = null;
 
   let activeSource = null;
   let activeStream = null;
@@ -25,6 +37,16 @@ const AudioEngine = (() => {
   let filePlaybackRate = 1.0;
   let onFileEndedCb    = null;
 
+  /*
+   * Signal graph
+   *
+   *   source ─┬─► gainNode ─► analyser ─► (muted) ─► destination   visuals only
+   *           ├─► monitorBus ─────────────────────► destination   speakers (files only)
+   *           └─► streamDest ─────────────────────► MediaRecorder
+   *
+   * The Gain slider and analyser never touch the audio you hear or record,
+   * so exported videos carry the song exactly as it was mastered.
+   */
   function init() {
     if (ctx) return;
 
@@ -38,16 +60,18 @@ const AudioEngine = (() => {
     gainNode = ctx.createGain();
     gainNode.gain.value = params.gain;
 
-    compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -24;
-    compressor.knee.value      = 10;
-    compressor.ratio.value     = 4;
-    compressor.attack.value    = 0.003;
-    compressor.release.value   = 0.25;
-
+    /* Analyser output is discarded, but keeping it connected to the
+       destination guarantees every browser keeps processing it. */
+    const mute = ctx.createGain();
+    mute.gain.value = 0;
     gainNode.connect(analyser);
-    analyser.connect(compressor);
-    compressor.connect(ctx.destination);
+    analyser.connect(mute);
+    mute.connect(ctx.destination);
+
+    monitorBus = ctx.createGain();
+    monitorBus.connect(ctx.destination);
+
+    streamDest = ctx.createMediaStreamDestination();
 
     freqBuf = new Uint8Array(analyser.frequencyBinCount);
     timeBuf = new Uint8Array(analyser.fftSize);
@@ -91,6 +115,7 @@ const AudioEngine = (() => {
 
     const node = ctx.createMediaStreamSource(stream);
     node.connect(gainNode);
+    node.connect(streamDest); /* recorded, but not played back (prevents feedback) */
     activeSource = node;
     sourceType   = 'mic';
   }
@@ -107,6 +132,8 @@ const AudioEngine = (() => {
     node.buffer = audioBuf;
     node.playbackRate.value = filePlaybackRate;
     node.connect(gainNode);
+    node.connect(monitorBus);
+    node.connect(streamDest);
     node.onended = function () {
       if (bufSrc !== node) return; /* manually stopped — ignore */
       bufSrc = null;
@@ -244,16 +271,7 @@ const AudioEngine = (() => {
     return timeBuf;
   }
 
-  function getRMS() {
-    if (!timeBuf) return 0;
-    let sum = 0;
-    const len = timeBuf.length;
-    for (let i = 0; i < len; i++) {
-      const s = (timeBuf[i] - 128) / 128;
-      sum += s * s;
-    }
-    return Math.sqrt(sum / len);
-  }
+  function getRMS() { return computeRMS(timeBuf); }
 
   async function resume() {
     if (ctx && ctx.state === 'suspended') await ctx.resume();
@@ -263,22 +281,19 @@ const AudioEngine = (() => {
   function getContext()    { return ctx; }
   function getSourceType() { return sourceType; }
 
-  /* Lazily create a MediaStreamDestination and return its audio stream for recording */
+  /* Audio stream for MediaRecorder — the source signal, before gain/analysis */
   function getAudioStream() {
-    if (!ctx) return null;
-    if (!streamDest) {
-      streamDest = ctx.createMediaStreamDestination();
-      compressor.connect(streamDest);
-    }
-    return streamDest.stream;
+    return streamDest ? streamDest.stream : null;
   }
+
+  function getAudioBuffer() { return audioBuf; }
 
   return {
     init, connectMic, connectFile,
     setFftSize, setSmoothing, setGain,
     getFrequencyData, getTimeDomainData, getRMS,
     getState, getContext, getSourceType, resume,
-    getAudioStream,
+    getAudioStream, getAudioBuffer,
     filePlay, filePause, fileStop, fileSeek,
     fileGetOffset, fileGetDuration, fileGetIsPlaying,
     fileSetLoop, fileSetPlaybackRate, fileSetOnEnded,

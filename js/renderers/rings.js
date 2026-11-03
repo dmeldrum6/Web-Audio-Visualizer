@@ -1,11 +1,12 @@
 
+/* Band ranges in Hz, so they stay correct for any FFT size / sample rate */
 const RING_BANDS = [
-  { lo: 0,   hi: 3   },  // sub-bass
-  { lo: 4,   hi: 10  },  // bass
-  { lo: 11,  hi: 25  },  // low-mid
-  { lo: 26,  hi: 60  },  // mid
-  { lo: 61,  hi: 120 },  // high-mid
-  { lo: 121, hi: -1  },  // treble (hi = -1 → end of useful range)
+  { lo: 20,   hi: 60    },  // sub-bass
+  { lo: 60,   hi: 250   },  // bass
+  { lo: 250,  hi: 500   },  // low-mid
+  { lo: 500,  hi: 2000  },  // mid
+  { lo: 2000, hi: 4000  },  // high-mid
+  { lo: 4000, hi: 12000 },  // treble
 ];
 const ringValues  = new Float32Array(6);   // smoothed band values 0–1
 const ringRipples = [];                    // { r, startTime }
@@ -22,20 +23,13 @@ function renderRings(ctx, freq, W, H, vizFillAlpha = 1) {
   /* Update smoothed band values */
   for (let b = 0; b < nBands; b++) {
     let rawVal = 0;
-    if (freq) {
-      const lo  = RING_BANDS[b].lo;
-      const hi  = RING_BANDS[b].hi === -1 ? Math.min(freq.length - 1, 200) : RING_BANDS[b].hi;
-      const end = Math.min(hi + 1, freq.length);
-      let sum   = 0;
-      for (let i = lo; i < end; i++) sum += freq[i];
-      rawVal = (end > lo) ? sum / ((end - lo) * 255) : 0;
-    }
+    if (freq) rawVal = bandEnergyHz(freq, RING_BANDS[b].lo, RING_BANDS[b].hi);
     ringValues[b] += (rawVal - ringValues[b]) * smoothK;
   }
 
   /* Emit ripple on beat */
   if (BeatDetector.isBeat()) {
-    ringRipples.push({ r: innerR, startTime: performance.now() });
+    ringRipples.push({ r: innerR, startTime: Clock.now() });
   }
 
   /* Subtle aura: filled circle at outerR with theme accent at 3% opacity */
@@ -73,7 +67,7 @@ function renderRings(ctx, freq, W, H, vizFillAlpha = 1) {
 
   /* Ripples */
   const RIPPLE_DURATION = 600;
-  const now = performance.now();
+  const now = Clock.now();
   for (let i = ringRipples.length - 1; i >= 0; i--) {
     const rip     = ringRipples[i];
     const elapsed = now - rip.startTime;

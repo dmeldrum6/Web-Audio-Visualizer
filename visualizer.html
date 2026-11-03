@@ -31,6 +31,12 @@
         <option value="2160p">4K (2160p)</option>
         <option value="native">Native</option>
       </select>
+      <select id="ctrl-record-fps" title="Export frame rate"
+              style="background:#1e1e24;border:1px solid #333;color:#ccc;
+                     border-radius:5px;padding:3px 6px;font-size:12px;cursor:pointer">
+        <option value="30">30 fps</option>
+        <option value="60">60 fps</option>
+      </select>
       <button class="btn" id="btn-yt-mode" title="Toggle YouTube export resolution mode">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
           <path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.1c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v1.9c0 2.1.3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.5 21.5 12 21.5 12 21.5s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-1.9C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l8.1 3.6-8.1 3.6z"/>
@@ -50,6 +56,18 @@
           <circle cx="5" cy="5" r="5" fill="#e05050"/>
         </svg>
         Record
+      </button>
+      <button class="btn" id="btn-record-song" title="Rewind, record the whole song, and save when it ends" disabled>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+        Record Song
+      </button>
+      <button class="btn" id="btn-export" title="Render the whole song frame-by-frame to MP4" disabled>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export MP4
       </button>
       <button class="btn" id="btn-copy-link">Copy link</button>
       <button class="btn" id="btn-shortcuts" title="Keyboard shortcuts (?)">?</button>
@@ -295,6 +313,11 @@
           <span class="ctrl-value" id="val-gain">1.0</span>
         </div>
         <input type="range" id="ctrl-gain" min="0.1" max="4.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="toggle-row" title="Spread bars evenly per octave (30 Hz – 16 kHz) instead of per Hz">
+        <span class="ctrl-label">Log Frequency Scale</span>
+        <button class="toggle-btn active" id="ctrl-freq-log" aria-label="Toggle logarithmic frequency scale"></button>
       </div>
 
     </div>
@@ -877,6 +900,44 @@
   </div>
 </div>
 
+<!-- Offline export modal -->
+<div id="export-modal" class="hidden">
+  <div class="modal-box export-box">
+    <div class="modal-header">
+      <h2>Export Video (frame-perfect)</h2>
+      <button class="modal-close" id="btn-close-export">&#x2715;</button>
+    </div>
+    <p class="export-note">
+      Renders the loaded song frame by frame to an MP4 with the original audio.
+      No dropped frames at any resolution or effect level; a slower computer just
+      takes longer. Uses your current mode, theme, overlays and layers.
+    </p>
+    <div id="export-settings" class="export-settings">
+      <label>Resolution
+        <select class="ctrl-select" id="export-resolution">
+          <option value="1080p">1080p (1920×1080)</option>
+          <option value="1440p">1440p (2560×1440)</option>
+          <option value="2160p">4K (3840×2160)</option>
+        </select>
+      </label>
+      <label>Frame rate
+        <select class="ctrl-select" id="export-fps">
+          <option value="30">30 fps</option>
+          <option value="60">60 fps</option>
+        </select>
+      </label>
+    </div>
+    <div id="export-progress" class="export-progress" style="display:none">
+      <div class="export-bar"><div id="export-bar-fill"></div></div>
+      <div id="export-status" class="export-status"></div>
+    </div>
+    <div class="export-actions">
+      <button class="btn" id="btn-export-cancel">Close</button>
+      <button class="btn btn-primary" id="btn-export-start">Start export</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div id="toast-container"></div>
 
@@ -898,8 +959,10 @@
 
 <!-- Load scripts in dependency order — no module system needed -->
 <script src="js/params.js"></script>
+<script src="js/clock.js"></script>
 <script src="js/themes.js"></script>
 <script src="js/audio/engine.js"></script>
+<script src="js/audio/freq-map.js"></script>
 <script src="js/audio/beat-detector.js"></script>
 <script src="js/audio/bpm-clock.js"></script>
 <script src="js/renderers/bars.js"></script>
@@ -924,6 +987,8 @@
 <script src="js/ui/controls.js"></script>
 <script src="js/ui/presets.js"></script>
 <script src="js/ui/recording.js"></script>
+<script src="js/vendor/mp4-muxer.js"></script>
+<script src="js/ui/export.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

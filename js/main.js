@@ -10,10 +10,6 @@ const idleEl     = document.getElementById('idle-msg');
 let logicalW = 1, logicalH = 1;
 let ytModeActive = false;
 
-/* Bloom off-screen canvas */
-let bloomCanvas = document.createElement('canvas');
-let bloomCtx    = bloomCanvas.getContext('2d');
-
 /* Layer compositor */
 const layerManager = new LayerManager();
 
@@ -29,9 +25,6 @@ function resizeCanvas() {
   canvas.width  = Math.round(logicalW * dpr);
   canvas.height = Math.round(logicalH * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  bloomCanvas.width  = canvas.width;
-  bloomCanvas.height = canvas.height;
-  bloomCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   vignetteW = -1;
   vignetteH = -1;
   bgState.patternW = -1;
@@ -151,7 +144,7 @@ function render(freq, time) {
   /* 7. Mode transition fade-to-black overlay */
   const mt = modeTransition;
   if (mt) {
-    const elapsed = performance.now() - mt.startTime;
+    const elapsed = Clock.now() - mt.startTime;
     const alpha   = Math.min(1, elapsed / 200);
     g.fillStyle   = `rgba(0,0,0,${alpha})`;
     g.fillRect(0, 0, W, H);
@@ -163,7 +156,7 @@ function render(freq, time) {
 
   /* 8. Beat flash — brief white overlay lasting 150 ms */
   if (BeatDetector.isEnabled()) {
-    const bfElapsed = performance.now() - beatFlashStart;
+    const bfElapsed = Clock.now() - beatFlashStart;
     if (bfElapsed >= 0 && bfElapsed < 150) {
       g.fillStyle = `rgba(255,255,255,${0.06 * (1 - bfElapsed / 150)})`;
       g.fillRect(0, 0, W, H);
@@ -172,7 +165,7 @@ function render(freq, time) {
 
   /* 9. Bloom/glow post-processing */
   if (params.bloomIntensity > 0) {
-    applyBloom(g, canvas, bloomCanvas, bloomCtx, W, H);
+    applyBloom(g, canvas, W, H);
   }
 
   /* 9b. Per-element audio bindings */
@@ -242,7 +235,7 @@ function checkSafeListen(rms) {
     if (highRmsStart === 0) highRmsStart = performance.now();
     if (!safListenWarned && (performance.now() - highRmsStart) >= 3000) {
       safListenWarned = true;
-      showToast('Audio level is high — consider reducing gain', 'warn');
+      showToast('Input level is very high — visuals may saturate; consider reducing Gain', 'warn');
     }
   } else {
     highRmsStart    = 0;
@@ -264,12 +257,50 @@ function flashBeatDot() {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   FRAME STEP — shared by the live loop and the offline exporter
+═══════════════════════════════════════════════════════════════ */
+function stepFrame(freq, time) {
+  BeatDetector.update(freq);
+  BPMClock.update();
+
+  const beatFired = BeatDetector.isBeat() || (BPMClock.isEnabled() && BPMClock.isTick());
+  if (beatFired) {
+    const now = Clock.now();
+    beatFlashStart = now;
+    setRadialBeatTime(now);
+    setArtistCardBeatState(1.15, 0.20, 0.40);
+    if (!isExporting()) flashBeatDot();
+  }
+
+  render(freq, time);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    RENDER LOOP
+   Capped at 60 fps so animation speed (smoothing, particle physics,
+   beat history) is the same on 60/120/144 Hz screens and matches the
+   60 Hz simulation used by the offline exporter.
 ═══════════════════════════════════════════════════════════════ */
 let hasSource = false;
 
+const FRAME_MS      = 1000 / 60;
+let   frameAccum    = 0;
+let   lastLoopTime  = 0;
+
 function loop(now) {
   requestAnimationFrame(loop);
+
+  /* Offline export drives rendering itself */
+  if (isExporting()) { lastLoopTime = now; return; }
+
+  const dt = lastLoopTime ? now - lastLoopTime : FRAME_MS;
+  lastLoopTime = now;
+  frameAccum += dt;
+  if (frameAccum < FRAME_MS - 3) return;    /* tolerance absorbs vsync jitter */
+  frameAccum -= FRAME_MS;
+  if (frameAccum > FRAME_MS) frameAccum = 0; /* after a stall, don't try to catch up */
+
   tickFPS(now);
 
   const running = AudioEngine.getState() === 'running';
@@ -283,18 +314,7 @@ function loop(now) {
   const freq = AudioEngine.getFrequencyData();
   const time = AudioEngine.getTimeDomainData();
 
-  BeatDetector.update(freq);
-  BPMClock.update();
-
-  const beatFired = BeatDetector.isBeat() || (BPMClock.isEnabled() && BPMClock.isTick());
-  if (beatFired) {
-    beatFlashStart = performance.now();
-    setRadialBeatTime(performance.now());
-    setArtistCardBeatState(1.15, 0.20, 0.40);
-    flashBeatDot();
-  }
-
-  render(freq, time);
+  stepFrame(freq, time);
 
   const rms = AudioEngine.getRMS();
   updateLevelMeter(rms);
@@ -350,9 +370,6 @@ function enableYtMode(resolution) {
   canvas.width  = res.w;
   canvas.height = res.h;
   g.setTransform(1, 0, 0, 1, 0, 0);
-  bloomCanvas.width  = res.w;
-  bloomCanvas.height = res.h;
-  bloomCtx.setTransform(1, 0, 0, 1, 0, 0);
   logicalW = res.w;
   logicalH = res.h;
   vignetteW = -1;
@@ -483,7 +500,76 @@ function onPbFileEnded() {
   pbSeekEl.value = 0;
   pbCurrentEl.textContent = '0:00';
   pbSeekEl.style.background = '#28282f';
+
+  if (fullSongRecording) {
+    /* Short tail so the last note's decay and the visuals settle */
+    setTimeout(() => {
+      if (isRecording) {
+        showToast('Song finished — saving video…', 'info');
+        stopRecording();
+      }
+    }, SONG_TAIL_MS);
+  }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RECORD FULL SONG — rewind, record, play, auto-stop at the end
+═══════════════════════════════════════════════════════════════ */
+const SONG_LEAD_IN_MS = 500;
+const SONG_TAIL_MS    = 750;
+let fullSongRecording = false;
+const btnRecordSong   = document.getElementById('btn-record-song');
+
+/* Reset time-based visual state so a take starts identically every time */
+function resetSongVisualState() {
+  barHeights.fill(0);
+  particlePool.length = 0;
+  ringRipples.length  = 0;
+  scopeTrail.length   = 0;
+  clearSpectrogramCanvas();
+  beatFlashStart = -Infinity;
+  clearModeTransition();
+  resetOverlayTimer();
+  if (params.overlayEnabled && params.overlayStyle === 'lower-third') triggerLowerThird();
+  if (params.artistCardTimerEnabled && params.artistCardEnabled) {
+    startArtistCardTimer(params.artistCardTimerDuration * 1000);
+  }
+}
+
+async function recordFullSong() {
+  if (AudioEngine.getSourceType() !== 'file') {
+    showToast('Load an audio file first', 'warn');
+    return;
+  }
+  if (isRecording || isExporting()) return;
+
+  AudioEngine.fileStop();
+  AudioEngine.fileSetLoop(false);
+  updatePbPlayIcon();
+  resetSongVisualState();
+
+  const ok = await startRecording(canvas);
+  if (!ok) {
+    AudioEngine.fileSetLoop(pbLoopOn);
+    return;
+  }
+  fullSongRecording = true;
+  showToast('Recording full song — it will stop and save automatically', 'info');
+
+  await new Promise(r => setTimeout(r, SONG_LEAD_IN_MS));
+  if (!isRecording || !fullSongRecording) return;   /* stopped during lead-in */
+  await AudioEngine.filePlay();
+  updatePbPlayIcon();
+}
+
+setRecordingStopListener(() => {
+  if (!fullSongRecording) return;
+  fullSongRecording = false;
+  AudioEngine.fileSetLoop(pbLoopOn);
+});
+
+btnRecordSong.addEventListener('click', recordFullSong);
 
 pbPlayBtn.addEventListener('click', async () => {
   if (AudioEngine.getSourceType() !== 'file') return;
@@ -563,6 +649,16 @@ const FILE_HTML = `
   </svg>
   Load File`;
 
+/* Record Song / Export need a loaded file */
+function setFileOnlyButtonsEnabled(on) {
+  const tip = on ? '' : ' — load an audio file first';
+  btnRecordSong.disabled = !on;
+  btnRecordSong.title    = 'Rewind, record the whole song, and save when it ends' + tip;
+  const btnExport = document.getElementById('btn-export');
+  btnExport.disabled = !on;
+  btnExport.title    = 'Render the whole song frame-by-frame to MP4' + tip;
+}
+
 function setActive(which) {
   btnMic.classList.toggle('active', which === 'mic');
   btnFile.classList.toggle('active', which === 'file');
@@ -578,6 +674,8 @@ btnMic.addEventListener('click', async () => {
     tapOver.classList.remove('show');
     hasSource = true;
     hidePlaybackBar();
+    setRecordingBaseName('');
+    setFileOnlyButtonsEnabled(false);
   } catch (err) {
     console.error('[AudioEngine] mic error:', err);
     srcLabel.textContent = 'Mic error: ' + (err.message || String(err));
@@ -603,6 +701,8 @@ fileInput.addEventListener('change', async () => {
     tapOver.classList.remove('show');
     hasSource = true;
     showPlaybackBar(file.name);
+    setRecordingBaseName(file.name);
+    setFileOnlyButtonsEnabled(true);
   } catch (err) {
     console.error('[AudioEngine] file error:', err);
     srcLabel.textContent = 'Error: ' + (err.message || String(err));
@@ -699,6 +799,7 @@ const { openShortcutsModal, closeShortcutsModal } = initShortcutsModal();
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (isExporting()) return;
 
   switch (e.key) {
     case ' ':
@@ -752,6 +853,7 @@ document.addEventListener('keydown', e => {
 
     case 'Escape':
       closeShortcutsModal();
+      exportModal.close();
       break;
 
     default: {
@@ -882,10 +984,42 @@ initPresets({
   markModified:         doMarkModified,
 });
 
+/* Offline export */
+let exportWasYt   = false;
+let exportResume  = null;   /* { offset, playing } */
+
+const exportModal = initExport({
+  canvas,
+  stepFrame,
+  resetSongVisualState,
+  beginExportView(resKey) {
+    exportResume = {
+      offset:  AudioEngine.fileGetOffset(),
+      playing: AudioEngine.fileGetIsPlaying(),
+    };
+    AudioEngine.filePause();
+    updatePbPlayIcon();
+    exportWasYt = ytModeActive;
+    enableYtMode(resKey);
+    ytGuide.style.display = 'none';
+    idleEl.style.display  = 'none';
+  },
+  endExportView() {
+    if (exportWasYt) enableYtMode();
+    else disableYtMode();
+    if (exportResume) {
+      AudioEngine.fileSeek(exportResume.offset);
+      exportResume = null;
+    }
+    updatePbPlayIcon();
+  },
+});
+
 /* Wire recording module */
 initRecording(() => ytModeActive, ytGuide);
 initRecordingResolution(enableYtMode, disableYtMode);
 initRecordButton(canvas);
+setFileOnlyButtonsEnabled(false);
 
 /* Build theme swatches */
 buildSwatches((index) => {

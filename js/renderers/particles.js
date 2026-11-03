@@ -36,7 +36,7 @@ function renderParticles(ctx, time, W, H, vizFillAlpha) {
   ctx.restore();
 
   /* Continuous drizzle from centre scaled by RMS */
-  const rms      = AudioEngine.getRMS();
+  const rms      = computeRMS(time);
   const baseVel  = 0.5 + rms * 4;
   const nSpawn   = 1 + Math.floor(Math.random() * 3);
   for (let i = 0; i < nSpawn; i++) {

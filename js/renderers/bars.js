@@ -19,7 +19,7 @@ function renderBars(ctx, freq, W, H, vizFillAlpha = 1) {
   }
 
   const barCount = params.barCount;
-  const binCount = freq.length;
+  const edges    = getBandEdges(barCount, freq.length);
   const barW     = W / barCount;
   const drawW    = Math.max(1, barW - 1);
   const centerY  = H * 0.5;
@@ -31,11 +31,7 @@ function renderBars(ctx, freq, W, H, vizFillAlpha = 1) {
 
   for (let i = 0; i < barCount; i++) {
     const srcI = (params.mirror && i >= barCount / 2) ? barCount - 1 - i : i;
-    const lo = Math.floor(srcI       * binCount / barCount);
-    const hi = Math.floor((srcI + 1) * binCount / barCount);
-    let sum = 0;
-    for (let b = lo; b < hi; b++) sum += freq[b];
-    const newVal = (hi > lo) ? sum / ((hi - lo) * 255) : freq[lo] / 255;
+    const newVal = bandValue(freq, edges, srcI);
 
     barHeights[i] += (newVal - barHeights[i]) * smoothK;
     const bh = barHeights[i] * maxBarH;

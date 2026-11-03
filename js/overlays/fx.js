@@ -4,32 +4,67 @@
    Modes: vhs | crt | grain | glitch | chroma
 ═══════════════════════════════════════════════════════════════ */
 
-/* Grain: cached noise canvas refreshed every other frame */
-let _grainCanvas = null;
-let _grainCtx    = null;
-let _grainFrame  = 0;
+/* Grain: a few small pre-generated noise tiles, tiled across the frame
+   with a random offset each frame. Generating full-frame noise every
+   frame cost ~33M random numbers per refresh at 4K. */
+const GRAIN_TILE   = 256;
+const GRAIN_FRAMES = 6;
+let _grainTiles    = null;   /* CanvasPattern[] */
+let _grainTilesCtx = null;   /* context the patterns were created on */
+let _grainFrame    = 0;
 
-function _ensureGrain(W, H) {
-  if (!_grainCanvas || _grainCanvas.width !== W || _grainCanvas.height !== H) {
-    _grainCanvas = document.createElement('canvas');
-    _grainCanvas.width  = W;
-    _grainCanvas.height = H;
-    _grainCtx = _grainCanvas.getContext('2d');
-    _grainFrame = 0;
+function _ensureGrain(ctx) {
+  if (_grainTiles && _grainTilesCtx === ctx) return;
+  _grainTiles = [];
+  for (let f = 0; f < GRAIN_FRAMES; f++) {
+    const c  = document.createElement('canvas');
+    c.width  = GRAIN_TILE;
+    c.height = GRAIN_TILE;
+    const cx = c.getContext('2d');
+    const id = cx.createImageData(GRAIN_TILE, GRAIN_TILE);
+    const d  = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const v  = (Math.random() * 255) | 0;
+      d[i]     = v;
+      d[i + 1] = v;
+      d[i + 2] = v;
+      d[i + 3] = (Math.random() * 80) | 0;
+    }
+    cx.putImageData(id, 0, 0);
+    _grainTiles.push(ctx.createPattern(c, 'repeat'));
   }
+  _grainTilesCtx = ctx;
 }
 
-function _buildGrain(W, H) {
-  const id = _grainCtx.createImageData(W, H);
-  const d  = id.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const v   = (Math.random() * 255) | 0;
-    d[i]      = v;
-    d[i + 1]  = v;
-    d[i + 2]  = v;
-    d[i + 3]  = (Math.random() * 80) | 0;
-  }
-  _grainCtx.putImageData(id, 0, 0);
+/* Cached repeat patterns for scanlines / phosphor dots, keyed by geometry */
+const _fxPatterns = new Map();
+
+function _linePattern(ctx, period, thickness) {
+  const key = `line|${period}|${thickness}`;
+  let pat = _fxPatterns.get(key);
+  if (pat && pat.ctx === ctx) return pat.pattern;
+  const c = document.createElement('canvas');
+  c.width = 1; c.height = period;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#000';
+  cx.fillRect(0, 0, 1, thickness);
+  pat = { ctx, pattern: ctx.createPattern(c, 'repeat') };
+  _fxPatterns.set(key, pat);
+  return pat.pattern;
+}
+
+function _dotPattern(ctx, gap, dot) {
+  const key = `dot|${gap}|${dot}`;
+  let pat = _fxPatterns.get(key);
+  if (pat && pat.ctx === ctx) return pat.pattern;
+  const c = document.createElement('canvas');
+  c.width = gap; c.height = gap;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#000';
+  cx.fillRect(0, 0, dot, dot);
+  pat = { ctx, pattern: ctx.createPattern(c, 'repeat') };
+  _fxPatterns.set(key, pat);
+  return pat.pattern;
 }
 
 /* Glitch: working canvas for row-slice displacement */
@@ -52,13 +87,11 @@ function _ensureGlitch(W, H) {
 function _applyVHS(ctx, W, H, intensity) {
   ctx.save();
 
-  /* Scanlines */
+  /* Scanlines — 1px line every 3px */
   ctx.globalCompositeOperation = 'source-over';
-  for (let y = 0; y < H; y += 3) {
-    ctx.globalAlpha = 0.18 * intensity;
-    ctx.fillStyle   = '#000';
-    ctx.fillRect(0, y, W, 1);
-  }
+  ctx.globalAlpha = 0.18 * intensity;
+  ctx.fillStyle   = _linePattern(ctx, 3, 1);
+  ctx.fillRect(0, 0, W, H);
 
   /* Horizontal noise tape stripe */
   if (Math.random() < 0.25 * intensity) {
@@ -104,19 +137,13 @@ function _applyCRT(ctx, W, H, intensity) {
   const gap = dot * 3;
   ctx.globalAlpha              = 0.08 * intensity;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle                = '#000';
-  for (let x = 0; x < W; x += gap) {
-    for (let y = 0; y < H; y += gap) {
-      ctx.fillRect(x, y, dot, dot);
-    }
-  }
+  ctx.fillStyle                = _dotPattern(ctx, gap, dot);
+  ctx.fillRect(0, 0, W, H);
 
-  /* Scanlines — slightly thicker than VHS */
+  /* Scanlines — slightly denser than VHS (1px every 2px) */
   ctx.globalAlpha = 0.12 * intensity;
-  ctx.fillStyle   = '#000';
-  for (let y = 0; y < H; y += 2) {
-    ctx.fillRect(0, y, W, 1);
-  }
+  ctx.fillStyle   = _linePattern(ctx, 2, 1);
+  ctx.fillRect(0, 0, W, H);
 
   /* Phosphor green tint */
   ctx.globalAlpha              = 0.06 * intensity;
@@ -141,21 +168,28 @@ function _applyCRT(ctx, W, H, intensity) {
 
 /* ── FILM GRAIN ───────────────────────────────────────────── */
 function _applyFilmGrain(ctx, W, H, intensity) {
-  _ensureGrain(W, H);
-  /* Rebuild noise every 2 frames for subtle animation */
-  if (++_grainFrame % 2 === 0) _buildGrain(W, H);
+  _ensureGrain(ctx);
+  /* New tile + offset every 2 frames for subtle animation */
+  if (++_grainFrame % 2 === 0) {
+    _applyFilmGrain.tile = (Math.random() * GRAIN_FRAMES) | 0;
+    _applyFilmGrain.ox   = (Math.random() * GRAIN_TILE) | 0;
+    _applyFilmGrain.oy   = (Math.random() * GRAIN_TILE) | 0;
+  }
+  const pat = _grainTiles[_applyFilmGrain.tile || 0];
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   ctx.globalAlpha              = 0.18 * intensity;
-  ctx.drawImage(_grainCanvas, 0, 0);
+  ctx.translate(-(_applyFilmGrain.ox || 0), -(_applyFilmGrain.oy || 0));
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, W + GRAIN_TILE, H + GRAIN_TILE);
   ctx.restore();
 }
 
 /* ── GLITCH ───────────────────────────────────────────────── */
 function _applyGlitch(ctx, W, H, intensity) {
   _ensureGlitch(W, H);
-  const now = performance.now();
+  const now = Clock.now();
 
   if (now > _glitchNext) {
     /* Schedule next glitch event */

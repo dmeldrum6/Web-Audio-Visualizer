@@ -49,27 +49,95 @@ function updateRecordUI() {
   }
 }
 
-function saveRecording() {
+/* ── Output naming ─────────────────────────────────────────── */
+let _recordingBaseName = '';
+
+/* Use the loaded song's file name (minus extension) for exported videos */
+function setRecordingBaseName(fileName) {
+  _recordingBaseName = sanitizeFileBase(fileName || '');
+}
+
+function sanitizeFileBase(name) {
+  return name
+    .replace(/\.[^.]+$/, '')                 /* drop extension */
+    .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100);
+}
+
+function buildOutputFilename(ext, resLabel, fps) {
+  const tag = [resLabel, fps ? `${fps}fps` : ''].filter(Boolean).join('-');
+  if (_recordingBaseName) {
+    return `${_recordingBaseName}${tag ? ' - ' + tag : ''}.${ext}`;
+  }
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  return `visualizer-${ts}${tag ? '-' + tag : ''}.${ext}`;
+}
+
+/* Video bitrate scaled to pixel rate (~0.2 bits/pixel), clamped to a sane range.
+   1080p30 ≈ 12 Mbps, 1440p30 ≈ 22 Mbps, 4K30 ≈ 50 Mbps, 4K60 = 80 Mbps. */
+function videoBitrateFor(w, h, fps) {
+  return Math.round(Math.min(80e6, Math.max(8e6, w * h * fps * 0.2)));
+}
+
+const RECORD_AUDIO_BPS = 320_000;
+
+/* Preferred MediaRecorder formats, best first. MP4/H.264+AAC is the most
+   editor-friendly; WebM/VP9+Opus is the Chrome/Firefox fallback. */
+const RECORDER_FORMATS = [
+  { mimeType: 'video/mp4;codecs=avc1,mp4a.40.2', ext: 'mp4'  },
+  { mimeType: 'video/mp4;codecs=avc1,opus',      ext: 'mp4'  },
+  { mimeType: 'video/webm;codecs=vp9,opus',      ext: 'webm' },
+  { mimeType: 'video/webm;codecs=vp8,opus',      ext: 'webm' },
+  { mimeType: 'video/mp4',                       ext: 'mp4'  },
+  { mimeType: 'video/webm',                      ext: 'webm' },
+];
+
+function pickRecorderFormat() {
+  for (const f of RECORDER_FORMATS) {
+    try { if (MediaRecorder.isTypeSupported(f.mimeType)) return f; } catch (_) {}
+  }
+  return null;
+}
+
+function extForMime(mime) {
+  return /mp4/i.test(mime || '') ? 'mp4' : 'webm';
+}
+
+let _recordingFilename = '';
+
+function saveRecording(mimeType) {
   if (!recordChunks.length) return;
-  const blob = new Blob(recordChunks, { type: 'video/webm' });
-  const url  = URL.createObjectURL(blob);
-  const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `visualizer-${ts}.webm`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const type = (mimeType || 'video/webm').split(';')[0];
+  const blob = new Blob(recordChunks, { type });
+  downloadBlob(blob, _recordingFilename || buildOutputFilename(extForMime(type)));
   recordChunks = [];
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 let _enableYtModeFn  = null;
 let _disableYtModeFn = null;
 let _wasInYtMode     = false;
+let _onRecordingStopped = null;
 
 function initRecordingResolution(enableYtMode, disableYtMode) {
   _enableYtModeFn  = enableYtMode;
   _disableYtModeFn = disableYtMode;
 }
+
+/* Called (once) whenever a recording stops, for whatever reason */
+function setRecordingStopListener(fn) { _onRecordingStopped = fn; }
 
 function stopRecording() {
   if (!isRecording || !recorder) return;
@@ -87,12 +155,16 @@ function stopRecording() {
   if (!_wasInYtMode && _disableYtModeFn) {
     _disableYtModeFn();
   }
+  if (_onRecordingStopped) _onRecordingStopped();
 }
 
+/* Returns true if recording started */
 async function startRecording(canvas) {
+  if (isRecording) return false;
+  if (typeof isExporting === 'function' && isExporting()) return false;
   if (!canvas.captureStream || !window.MediaRecorder) {
     showToast('Recording not supported in this browser — try Chrome or Edge', 'error');
-    return;
+    return false;
   }
 
   const ytModeActive = _ytModeActiveGetter ? _ytModeActiveGetter() : false;
@@ -102,49 +174,43 @@ async function startRecording(canvas) {
     _wasInYtMode = false;
     _enableYtModeFn(params.recordResolution);
   } else {
-    _wasInYtMode = ytModeActive;
+    _wasInYtMode = true; /* nothing to undo on stop */
   }
 
-  const videoStream = canvas.captureStream(30);
+  const fps         = params.recordFps || 30;
+  const videoStream = canvas.captureStream(fps);
   const audioStream = AudioEngine.getAudioStream();
 
   let tracks = [...videoStream.getVideoTracks()];
   if (audioStream) tracks = [...tracks, ...audioStream.getAudioTracks()];
 
   const combined = new MediaStream(tracks);
-
-  /* Bitrate scales with resolution */
-  const resBitrates = { '1080p': 12_000_000, '1440p': 20_000_000, '2160p': 45_000_000 };
-  const targetBps   = resBitrates[params.recordResolution] || 12_000_000;
-
-  const inHighRes = !_wasInYtMode || ytModeActive; /* true once we entered a resolution mode */
-
-  let recOptions = {};
-  if (inHighRes && params.recordResolution !== 'native') {
-    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-      recOptions = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: targetBps };
-    } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-      recOptions = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: targetBps };
-    }
-  } else {
-    try {
-      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-        recOptions = { mimeType: 'video/webm;codecs=vp9,opus' };
-      }
-    } catch (_) {}
-  }
+  const format   = pickRecorderFormat();
+  const recOptions = {
+    videoBitsPerSecond: videoBitrateFor(canvas.width, canvas.height, fps),
+    audioBitsPerSecond: RECORD_AUDIO_BPS,
+  };
+  if (format) recOptions.mimeType = format.mimeType;
 
   try {
     recorder = new MediaRecorder(combined, recOptions);
   } catch (err) {
+    console.error('[Recording] MediaRecorder error:', err);
     showToast('Recording not supported in this browser — try Chrome or Edge', 'error');
-    return;
+    if (!_wasInYtMode && _disableYtModeFn) _disableYtModeFn();
+    return false;
   }
 
+  const resLabel = params.recordResolution === 'native'
+    ? `${canvas.width}x${canvas.height}` : params.recordResolution;
+  const mime = recorder.mimeType || (format && format.mimeType) || 'video/webm';
+  _recordingFilename = buildOutputFilename(extForMime(mime), resLabel, fps);
+
   recordChunks = [];
+  const thisRecorder = recorder;
   recorder.ondataavailable = e => { if (e.data.size > 0) recordChunks.push(e.data); };
-  recorder.onstop = saveRecording;
-  recorder.start(100);
+  recorder.onstop = () => saveRecording(thisRecorder.mimeType || mime);
+  recorder.start(1000);
 
   recordStartTime  = Date.now();
   isRecording      = true;
@@ -167,6 +233,8 @@ async function startRecording(canvas) {
     showToast('Max recording time (60:00) reached — saving…', 'warn');
     stopRecording();
   }, 3600000);
+
+  return true;
 }
 
 function toggleRecording(canvas) {

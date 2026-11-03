@@ -6,6 +6,7 @@ const params = {
   fftSize:      8192,
   smoothing:    0.80,
   gain:         1.0,
+  freqScale:    'log',   /* 'log' (musical) | 'linear' */
   motionAmount: 0.5,
   trailAlpha:   0.0,
   mirror:       false,
@@ -60,6 +61,7 @@ const params = {
   bpmSubdivision:  1,
   /* recording resolution */
   recordResolution: '1080p',
+  recordFps:        30,
   /* layer compositor — layer data lives in LayerManager, this flag enables it */
   layersEnabled: false,
   /* per-element bindings — populated by bindings.js */

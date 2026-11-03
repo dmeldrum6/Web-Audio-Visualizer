@@ -1,5 +1,5 @@
 
-let textOverlayStartTime = performance.now();
+let textOverlayStartTime = Clock.now();
 let overlaySpotCanvas = null, overlaySpotCtx = null, overlaySpotW = -1, overlaySpotH = -1;
 
 /* Lower-third animation state */
@@ -9,11 +9,11 @@ let lowerThirdAnimStart = 0;
 
 function triggerLowerThird() {
   lowerThirdPhase     = 'in';
-  lowerThirdAnimStart = performance.now();
+  lowerThirdAnimStart = Clock.now();
 }
 
 function resetOverlayTimer() {
-  textOverlayStartTime = performance.now();
+  textOverlayStartTime = Clock.now();
 }
 
 function overlaySeededRng(seed) {
@@ -189,7 +189,7 @@ function drawSpotlightOverlay(ctx, text, t, W, H, cr, cg, cb) {
 }
 
 function drawLowerThirdOverlay(ctx, W, H, cr, cg, cb) {
-  const now = performance.now();
+  const now = Clock.now();
 
   /* Advance animation phase */
   if (lowerThirdPhase === 'in') {
@@ -269,7 +269,7 @@ function drawLowerThirdOverlay(ctx, W, H, cr, cg, cb) {
 
 function drawTextOverlay(ctx, logicalW, logicalH) {
   if (!params.overlayEnabled) return;
-  const t            = (performance.now() - textOverlayStartTime) / 1000;
+  const t            = (Clock.now() - textOverlayStartTime) / 1000;
   const W            = logicalW, H = logicalH;
   const text         = params.overlayText;
   const [cr, cg, cb] = hexToRgb(params.overlayColor);
