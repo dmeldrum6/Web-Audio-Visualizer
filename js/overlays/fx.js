@@ -36,37 +36,6 @@ function _ensureGrain(ctx) {
   _grainTilesCtx = ctx;
 }
 
-/* Cached repeat patterns for scanlines / phosphor dots, keyed by geometry */
-const _fxPatterns = new Map();
-
-function _linePattern(ctx, period, thickness) {
-  const key = `line|${period}|${thickness}`;
-  let pat = _fxPatterns.get(key);
-  if (pat && pat.ctx === ctx) return pat.pattern;
-  const c = document.createElement('canvas');
-  c.width = 1; c.height = period;
-  const cx = c.getContext('2d');
-  cx.fillStyle = '#000';
-  cx.fillRect(0, 0, 1, thickness);
-  pat = { ctx, pattern: ctx.createPattern(c, 'repeat') };
-  _fxPatterns.set(key, pat);
-  return pat.pattern;
-}
-
-function _dotPattern(ctx, gap, dot) {
-  const key = `dot|${gap}|${dot}`;
-  let pat = _fxPatterns.get(key);
-  if (pat && pat.ctx === ctx) return pat.pattern;
-  const c = document.createElement('canvas');
-  c.width = gap; c.height = gap;
-  const cx = c.getContext('2d');
-  cx.fillStyle = '#000';
-  cx.fillRect(0, 0, dot, dot);
-  pat = { ctx, pattern: ctx.createPattern(c, 'repeat') };
-  _fxPatterns.set(key, pat);
-  return pat.pattern;
-}
-
 /* Glitch: working canvas for row-slice displacement */
 let _glitchCanvas = null;
 let _glitchCtx    = null;
@@ -87,11 +56,13 @@ function _ensureGlitch(W, H) {
 function _applyVHS(ctx, W, H, intensity) {
   ctx.save();
 
-  /* Scanlines — 1px line every 3px */
+  /* Scanlines */
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 0.18 * intensity;
-  ctx.fillStyle   = _linePattern(ctx, 3, 1);
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle   = '#000';
+  for (let y = 0; y < H; y += 3) {
+    ctx.fillRect(0, y, W, 1);
+  }
 
   /* Horizontal noise tape stripe */
   if (Math.random() < 0.25 * intensity) {
@@ -137,13 +108,19 @@ function _applyCRT(ctx, W, H, intensity) {
   const gap = dot * 3;
   ctx.globalAlpha              = 0.08 * intensity;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle                = _dotPattern(ctx, gap, dot);
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle                = '#000';
+  for (let x = 0; x < W; x += gap) {
+    for (let y = 0; y < H; y += gap) {
+      ctx.fillRect(x, y, dot, dot);
+    }
+  }
 
-  /* Scanlines — slightly denser than VHS (1px every 2px) */
+  /* Scanlines — slightly thicker than VHS */
   ctx.globalAlpha = 0.12 * intensity;
-  ctx.fillStyle   = _linePattern(ctx, 2, 1);
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle   = '#000';
+  for (let y = 0; y < H; y += 2) {
+    ctx.fillRect(0, y, W, 1);
+  }
 
   /* Phosphor green tint */
   ctx.globalAlpha              = 0.06 * intensity;
